@@ -3,28 +3,29 @@ open util/ordering [Time] as T
 sig Time{}
 
 abstract sig Agent{
-	pair: lone Agent
+	pair:set Agent
+	symKey: pair lone -> Key
 }{
 	all a:Agent | a not in pair
 }
 sig Honest extends Agent{
-	send: Nonce set -> Time,
-	received: Nonce set -> Time,
+	sendMsg1: Nonce  -> Honest -> Time,
+	sendMsg2: Nonce  -> Honest -> Time,
+//	received: Nonce set -> Time,
+	receivedMsg1: Nonce -> Honest ->Time,
+	receivedMsg2: Nonce -> Honest ->Time,
 	to: Agent lone -> Time,
 	from: Agent lone -> Time
-}{
-//	all t: Time| all h:Honest | h not in to.t and h not in from.t
-	
-}
-one sig Intruder extends Agent{
-	to: Agent lone -> Time,
-	received: Nonce set -> Time,
-	from: Agent lone -> Time
-}{
-//	all t: Time| Intruder not in to.t and Intruder not in from.t
 }
 
-//sig Key{}
+one sig Intruder extends Agent{
+	to: Agent lone -> Time,
+//	received: Nonce set -> Time,
+	received: Nonce -> Honest ->Time,
+	from: Agent lone -> Time
+}
+
+sig Key{}
 sig Nonce{}
 /*
 sig Enc{
@@ -32,8 +33,8 @@ sig Enc{
 }*/
 
 pred init [t: Time]{
-	no Honest.received.t
-	no  Honest.send.t
+	no Honest.receivedMsg1.t
+	no  Honest.sendMsg1.t
 	no  Honest.to.t
 	no  Honest.from.t
 	no Intruder.received.t
@@ -46,15 +47,17 @@ pred trans[t, t':Time]{
 }
 
 pred SendMsg1[t,t':Time, Alice,Bob:Honest, n:Nonce] {
-	//Bob in Alice.to.t and n in Alice.send and n in Intruder.received and Alice in Intruder.from and n in Intruder.received and Bob in Intruder.to 
-	//	all h:Honest | one h.from and one h.to
+	
+	//Pre conditions 
+
+	//Post Conditions
 	Alice.to.t'= Alice.to.t + Bob
-	Alice.send.t'=Alice.send.t + n
-	Intruder.received.t'=Intruder.received.t + n
+	Alice.sendMsg1.t'=Alice.sendMsg1.t + n->Bob
+	Intruder.received.t'=Intruder.received.t + n->Alice
 	Intruder.from.t'= Intruder.from.t + Alice
 	Intruder.to.t'=Intruder.to.t + Bob
-	n not in Bob.received.t'
-	n not in Alice.received.t'
+	//Frame Conditions
+
 }
 
 
@@ -63,6 +66,7 @@ fact{
 	init [T/first]
 	all t: Time - T/last | trans [t, T/next[t]]
 	all t: Time | all h:Honest | Intruder not in h.from.t and Intruder not in h.to.t 
+	all t: Time | all h:Honest | h not in h.to.t and h not in h.from.t
 }
 
 
