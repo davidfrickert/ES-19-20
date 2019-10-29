@@ -15,9 +15,9 @@ abstract sig Agent{
 
 sig Honest extends Agent{
 	sendMsg1: Nonce  -> Honest -> Time,
-	sendMsg2: Nonce  -> Honest -> Time,
+	sendMsg2: Enc  -> Honest -> Time,
 	receivedMsg1: Nonce -> Honest ->Time,
-	receivedMsg2: Nonce -> Honest ->Time,
+	receivedMsg2: Enc -> Honest ->Time,
 	to: Agent lone -> Time,
 	from: Agent lone -> Time
 }
@@ -35,7 +35,8 @@ sig Key{}
 sig Nonce{}
 
 sig Enc{
-	EncryptKey: one Key
+	EncryptKey: Key,
+	nonce: Nonce 
 }
 
 pred init [t: Time]{
@@ -43,13 +44,13 @@ pred init [t: Time]{
 	no  Honest.sendMsg1.t
 	no  Honest.to.t
 	no  Honest.from.t
-	no Intruder.receivedMsg1.t
+//	no Intruder.receivedMsg1.t
 	no Intruder.receivedMsg2.t
 	no Intruder.sendMsg1.t
 	no Intruder.sendMsg2.t
 	no  Intruder.to.t
 	no  Intruder.from.t
-	no Enc
+//	no Enc
 }
 
 pred trans[t, t':Time]{
@@ -93,6 +94,32 @@ pred msg1IntruderToHonest[t,t':Time, Alice,Bob:Honest, n:Nonce]{
 }
 
 
+pred msg2HonestToIntruder[t, t': Time, Alice, Bob: Honest, n: Nonce, e: Enc] {
+
+	// Pre conds
+
+	// e necessario o intruder ja ter completo a fase 1, ou seja, tem uma nonce
+	#Intruder.receivedMsg1.t > 0
+
+	// para estar limpo ao inicio, para remover
+	//#Alice.receivedMsg2.t = 0
+//	#Bob.receivedMsg2.t = 0
+
+	// bob sends the fresh nonce 'n' and an encrypted message 'm'
+	Bob.to.t' = Bob.to.t + Alice
+	Bob.sendMsg1.t' = Bob.sendMsg1.t + n->Alice
+	Bob.sendMsg2.t' = Bob.sendMsg2.t + e->Alice
+
+	Intruder.receivedMsg1.t' = Intruder.receivedMsg1.t + n->Bob
+	Intruder.from.t' = Intruder.from.t + Bob
+	// Intruder.to.t' = Intruder.to.t + Alice
+
+	// Frame
+	// noRecvToHimself
+	noMessageSentExcept[t, t', Bob, none]
+	noMessageReceivedExcept[t, t', none, Intruder]
+}
+
 //Frame Conditions
 
 pred noMessageSentExcept[t,t':Time, a: set Honest, i:Intruder]{
@@ -129,3 +156,5 @@ fact{
 
 run msg1IntruderToHonest for 5
 run msg1HonestToIntruder for 5
+run msg2HonestToIntruder for 5 but exactly 2 Honest, 1 Enc
+
