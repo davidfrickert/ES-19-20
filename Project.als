@@ -25,9 +25,9 @@ sig Honest extends Agent{
 one sig Intruder extends Agent{
 	to: Agent lone -> Time,
 	sendMsg1: Nonce  -> Honest -> Time,
-	sendMsg2: Nonce  -> Honest -> Time,
+	sendMsg2: Enc  -> Honest -> Time,
 	receivedMsg1: Nonce -> Honest ->Time,
-	receivedMsg2: Nonce -> Honest ->Time,
+	receivedMsg2: Enc -> Honest ->Time,
 	from: Agent lone -> Time
 }
 
@@ -36,7 +36,7 @@ sig Nonce{}
 
 sig Enc{
 	EncryptKey: Key,
-	nonce: Nonce 
+	nonce: Nonce
 }
 
 pred init [t: Time]{
@@ -44,7 +44,7 @@ pred init [t: Time]{
 	no  Honest.sendMsg1.t
 	no  Honest.to.t
 	no  Honest.from.t
-//	no Intruder.receivedMsg1.t
+	no Intruder.receivedMsg1.t
 	no Intruder.receivedMsg2.t
 	no Intruder.sendMsg1.t
 	no Intruder.sendMsg2.t
@@ -98,14 +98,10 @@ pred msg2HonestToIntruder[t, t': Time, Alice, Bob: Honest, n: Nonce, e: Enc] {
 
 	// Pre conds
 
-	// e necessario o intruder ja ter completo a fase 1, ou seja, tem uma nonce
-	#Intruder.receivedMsg1.t > 0
+	// first message exchange must have occured already, Bob must know nA (nonce of A) 
 
-	// para estar limpo ao inicio, para remover
-	//#Alice.receivedMsg2.t = 0
-//	#Bob.receivedMsg2.t = 0
+	// Post conds
 
-	// bob sends the fresh nonce 'n' and an encrypted message 'm'
 	Bob.to.t' = Bob.to.t + Alice
 	Bob.sendMsg1.t' = Bob.sendMsg1.t + n->Alice
 	Bob.sendMsg2.t' = Bob.sendMsg2.t + e->Alice
@@ -118,6 +114,28 @@ pred msg2HonestToIntruder[t, t': Time, Alice, Bob: Honest, n: Nonce, e: Enc] {
 	// noRecvToHimself
 	noMessageSentExcept[t, t', Bob, none]
 	noMessageReceivedExcept[t, t', none, Intruder]
+}
+
+pred msg2IntruderToHonest[t, t': Time, Alice, Bob: Honest, n: Nonce, e: Enc] {
+	
+	// Pre Conditions
+
+	// Intruder has nonce and encrypted message from Bob
+
+	// Post Conditions
+	Intruder.sendMsg1.t' = Intruder.sendMsg1.t + n->Alice
+	Intruder.sendMsg2.t' = Intruder.sendMsg2.t + e->Alice
+	Intruder.to.t' = Intruder.to.t + Alice
+	
+	Alice.from.t' = Alice.from.t + Bob
+	Alice.receivedMsg1.t' = Alice.receivedMsg1.t + n->Bob
+	Alice.receivedMsg2.t' = Alice.receivedMsg2.t + e->Bob
+
+	// Frame
+	noMessageSentExcept[t, t', none, Intruder]
+	noMessageReceivedExcept[t, t', Alice, none]
+
+	
 }
 
 //Frame Conditions
@@ -142,7 +160,7 @@ pred AgentFacts{
 }
 
 
-fact{
+fact{// comentado
 	init [T/first]
 	all t: Time - T/last | trans [t, T/next[t]]
 	all t: Time | all h:Honest | Intruder not in h.from.t and Intruder not in h.to.t 
@@ -157,4 +175,4 @@ fact{
 run msg1IntruderToHonest for 5
 run msg1HonestToIntruder for 5
 run msg2HonestToIntruder for 5 but exactly 2 Honest, 1 Enc
-
+run msg2IntruderToHonest for 5 but exactly 2 Honest, 1 Enc
