@@ -99,7 +99,10 @@ pred msg2HonestToIntruder[t, t': Time, Alice, Bob: Honest, n: Nonce, e: Enc] {
 	// Pre conds
 
 	// first message exchange must have occured already, Bob must know nA (nonce of A) 
-
+	// n funcionam por causa do init
+	some Bob.receivedMsg1.t.Alice
+	// a mensagem encriptada que enviamos tem de ser com a nonce que bob recebeu da alice na troca 1
+	e.nonce in Bob.receivedMsg1.t.Alice
 	// Post conds
 
 	Bob.to.t' = Bob.to.t + Alice
@@ -121,6 +124,9 @@ pred msg2IntruderToHonest[t, t': Time, Alice, Bob: Honest, n: Nonce, e: Enc] {
 	// Pre Conditions
 
 	// Intruder has nonce and encrypted message from Bob
+	// n funciona por causa do init
+	n in Intruder.receivedMsg1.t.Bob
+	e in Intruder.receivedMsg2.t.Bob
 
 	// Post Conditions
 	Intruder.sendMsg1.t' = Intruder.sendMsg1.t + n->Alice
@@ -160,7 +166,7 @@ pred AgentFacts{
 }
 
 
-fact{// comentado
+fact{
 	init [T/first]
 	all t: Time - T/last | trans [t, T/next[t]]
 	all t: Time | all h:Honest | Intruder not in h.from.t and Intruder not in h.to.t 
