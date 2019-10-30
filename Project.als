@@ -2,7 +2,7 @@ open util/ordering [Time] as T
 
 sig Time{}
 abstract sig LastOperation{}
-one sig msg1HonestToIntruder, msg1IntruderToHonest, msg2HonestToIntruder, msg2IntruderToHonest extends LastOperation{}
+one sig msg1HonestToIntruder, msg1IntruderToHonest, msg2HonestToIntruder, msg2IntruderToHonest, msg3HonestToIntruder, msg3IntruderToHonest extends LastOperation{}
 one sig Track{op: LastOperation lone -> Time}
 
 
@@ -18,8 +18,10 @@ abstract sig Agent{
 sig Honest extends Agent{
 	sendMsg1: Nonce  -> Honest -> Time,
 	sendMsg2: Enc -> Honest -> Time,
+	sendMsg3: Enc -> Honest -> Time,
 	receivedMsg1: Nonce -> Honest ->Time,
 	receivedMsg2: Nonce -> Honest ->Time,
+	receivedMsg3: Enc -> Honest ->Time,
 	to: Agent lone -> Time,
 	from: Agent lone -> Time
 }
@@ -28,8 +30,10 @@ one sig Intruder extends Agent{
 	to: Agent lone -> Time,
 	sendMsg1: Nonce  -> Honest -> Time,
 	sendMsg2: Nonce  -> Honest -> Time,
+	sendMsg3: Enc -> Honest -> Time,
 	receivedMsg1: Nonce -> Honest ->Time,
 	receivedMsg2: Enc ->Time,
+	receivedMsg3: Enc -> Time,
 	from: Agent lone -> Time
 }
 
@@ -133,11 +137,13 @@ pred msg2HonestToIntruder[t,t':Time, Alice,Bob:Honest, n, n1:Nonce, m:Enc]{
 	 
 		
 	//Frame Conditions
-		noMessageSentExcept[t, t', Bob, none]
+		noMessageSentExcept[t, t', Alice, none]
 		noMessageReceivedExcept[t,t', none, Intruder]
 		noEncriptedMessageChangeExcept[t,t',m]
 	
 }
+
+
 
 pred msg2IntruderToHonest[t, t': Time, Alice, Bob: Honest, n: Nonce, e: Enc] {
 	
@@ -163,6 +169,50 @@ pred msg2IntruderToHonest[t, t': Time, Alice, Bob: Honest, n: Nonce, e: Enc] {
 	noEncriptedMessageChangeExcept[t,t', none]
 }
 
+
+
+pred msg3HonestToIntruder[t,t':Time, Alice,Bob:Honest, n :Nonce, m:Enc]{
+	//Pre Conditions
+		
+		Bob in Alice.receivedMsg2.t [n]
+		n in Alice.receivedMsg2.t.Honest
+
+	//Post Conditions
+	
+		m.EncryptKey.t'= m.EncryptKey.t+Bob.sharedKey[Alice]  
+		m.Text.t'= m.Text.t+n 
+		m.Iden.t'=m.Iden.t+Alice
+		
+		Alice.to.t'=Alice.to.t + Bob
+		Alice.sendMsg3.t'=Alice.sendMsg3.t + m->Bob
+
+		Intruder.from.t'=Intruder.from.t + Alice
+		Intruder.receivedMsg3.t'=Intruder.receivedMsg3.t + m
+	 
+		
+	//Frame Conditions
+		noMessageSentExcept[t, t', Bob, none]
+		noMessageReceivedExcept[t,t', none, Intruder]
+		noEncriptedMessageChangeExcept[t,t',m]
+}
+
+pred msg3IntruderToHonest[t, t': Time, Alice, Bob: Honest, e: Enc] {
+	
+	// Pre Conditions
+	e in Intruder.receivedMsg3.t
+
+	// Post Conditions
+	Intruder.sendMsg3.t'.Honest = Intruder.sendMsg3.t.Honest + e
+	Intruder.to.t' = Intruder.to.t + Bob
+	
+	Bob.from.t' = Bob.from.t + Alice
+	Bob.receivedMsg3.t' = Alice.receivedMsg3.t + e-> Alice
+
+	// Frame
+	noMessageSentExcept[t, t', none, Intruder]
+	noMessageReceivedExcept[t, t', Alice, none]
+	noEncriptedMessageChangeExcept[t,t', none]
+}
 
 //Frame Conditions
 
