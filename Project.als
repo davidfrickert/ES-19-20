@@ -18,23 +18,19 @@ abstract sig Agent{
 sig Honest extends Agent{
 	sendMsg1: Nonce  -> Honest -> Time,
 	sendMsg2: Enc -> Honest -> Time,
-	sendMsg3: Enc -> Honest -> Time,
 	receivedMsg1: Nonce -> Honest ->Time,
-	receivedMsg2: Nonce -> Honest ->Time,
-	receivedMsg3: Enc -> Honest ->Time,
-	to: Agent lone -> Time,
-	from: Agent lone -> Time
+	receivedMsg2: Enc -> Honest ->Time,
+	to: Agent -> Time,
+	from: Agent  -> Time
 }
 
 one sig Intruder extends Agent{
-	to: Agent lone -> Time,
+	to: Agent -> Time,
 	sendMsg1: Nonce  -> Honest -> Time,
-	sendMsg2: Nonce  -> Honest -> Time,
-	sendMsg3: Enc -> Honest -> Time,
+	sendMsg2: Enc -> Honest -> Time,
 	receivedMsg1: Nonce -> Honest ->Time,
 	receivedMsg2: Enc ->Time,
-	receivedMsg3: Enc -> Time,
-	from: Agent lone -> Time
+	from: Agent -> Time
 }
 
 sig Key{}
@@ -47,10 +43,10 @@ sig Enc {
 }
 
 pred init [t: Time]{
-	no Honest.receivedMsg1.t
-	no Honest.sendMsg2.t
+	no  Honest.receivedMsg1.t
+	no  Honest.receivedMsg2.t
 	no  Honest.sendMsg1.t
-	no Honest.sendMsg2.t
+	no  Honest.sendMsg2.t
 	no  Honest.to.t
 	no  Honest.from.t
 	no Intruder.receivedMsg1.t
@@ -65,7 +61,12 @@ pred init [t: Time]{
 }
 
 pred trans[t, t':Time]{
-	some a,b:Honest, disj n,n1:Nonce, m:Enc | (msg1HonestToIntruder[t, t', a, b, n] and Track.op.t'=msg1HonestToIntruder )  or (msg1IntruderToHonest[t,t',a,b,n] and Track.op.t'=msg1IntruderToHonest) or (msg2HonestToIntruder[t,t',a,b,n, n1, m] and Track.op.t'=msg2HonestToIntruder) 
+	some  disj a,b:Honest | one disj n,n1:Nonce, m:Enc {   (msg1HonestToIntruder[t, t', a, b, n] and Track.op.t'=msg1HonestToIntruder )  
+									or (msg1IntruderToHonest[t,t',a,b,n] and Track.op.t'=msg1IntruderToHonest) 
+									or (msg2HonestToIntruder[t,t',a,b,n, n1, m] and Track.op.t'=msg2HonestToIntruder)
+									or (msg2IntruderToHonest[t,t',a,b,n1,m] and Track.op.t'=msg2IntruderToHonest)
+									or (msg3HonestToIntruder[t,t',a,b,n1,m] and Track.op.t'=msg3HonestToIntruder)
+									or (msg3IntruderToHonest[t,t',a,b,m] and Track.op.t'=msg3IntruderToHonest)   } 
 }
 
 //Operations
@@ -73,58 +74,69 @@ pred trans[t, t':Time]{
 pred msg1HonestToIntruder[t,t':Time, Alice,Bob:Honest, n:Nonce] {
 	
 	//Pre conditions 
- 	
 
+ 	init[t]
+	
 	//Post Conditions
 
 	Alice.to.t'= Alice.to.t + Bob
 	Alice.sendMsg1.t'=Alice.sendMsg1.t + n->Bob
 	Intruder.receivedMsg1.t'=Intruder.receivedMsg1.t + n->Alice
 	Intruder.from.t'= Intruder.from.t + Alice
+	
 
 	//Frame Conditions
-	noMessageSentExcept[t, t', Alice, none]
-	noMessageReceivedExcept[t,t', none, Intruder]
-	noEncriptedMessageChangeExcept[t,t',none]
-	Intruder.receivedMsg2.t'=Intruder.receivedMsg2.t
-	Intruder.sendMsg2.t'=Intruder.sendMsg2.t
-	
+	noMessageType1SentExcept[t, t', Alice, none]
+	noMessageType2SentExcept[t, t', none, none]
+	noMessageType1ReceivedExcept[t, t', none, Intruder]
+	noMessageType2ReceivedExcept[t, t', none, none]
+	noEncriptedMessageChangeExcept[t, t', none]
+	noAgentToChangeExcept[t,t',Alice,none]
+	noAgentFromChangeExcept[t,t',none, Intruder]
 }
 
 pred msg1IntruderToHonest[t,t':Time, Alice,Bob:Honest, n:Nonce]{
 
 	//Pre Conditions
-	Alice in Intruder.from.t
-	Alice  in Intruder.receivedMsg1.t [n]
+//	Bob not in Bob.receivedMsg1.t[n]
+	Bob not in Intruder.to.t
+	Bob in Alice.sendMsg1.t [n]
+	Bob in Alice.to.t
+	
 	
 	//Post Conditions
 
 	Bob.from.t'=Bob.from.t+Alice
 	Bob.receivedMsg1.t'= Bob.receivedMsg1.t + n->Alice
-	Intruder.sendMsg1.t'= Intruder.sendMsg1.t + n-> Bob
+	Intruder.sendMsg1.t'= Intruder.sendMsg1.t + n-> Bob or 
 	Intruder.to.t'=Intruder.to.t + Bob
 
  
 	//Frame conditions
-	noMessageSentExcept[t, t', none, Intruder]
-	noMessageReceivedExcept[t,t', Bob, none]
+	noMessageType1SentExcept[t, t', none, Intruder]
+	noMessageType2SentExcept[t, t', none, none]
+	noMessageType1ReceivedExcept[t,t', Bob, none]
+	noMessageType2ReceivedExcept[t,t',none,none]
 	noEncriptedMessageChangeExcept[t,t',none]
-	Intruder.receivedMsg2.t'=Intruder.receivedMsg2.t
-	Intruder.sendMsg2.t'=Intruder.sendMsg2.t
+	noAgentToChangeExcept[t,t',none, Intruder]
+	noAgentFromChangeExcept[t,t',Bob, none]
+
 }
 
 pred msg2HonestToIntruder[t,t':Time, Alice,Bob:Honest, n, n1:Nonce, m:Enc]{
 	//Pre Conditions
-		
-		Alice in Bob.receivedMsg1.t [n]
-	//	Alice in Bob.from.t
-	//	some Bob.receivedMsg1.t.Alice
 
+		Alice in Bob.receivedMsg1.t [n]
+		Alice in Bob.from.t
+		no Intruder.receivedMsg2.t
+		m not in Intruder.receivedMsg2.t 
+	
+	
 	//Post Conditions
 	
-		m.EncryptKey.t'= m.EncryptKey.t+Alice.sharedKey[Bob]  
-		m.Text.t'= m.Text.t+n 
-		m.Iden.t'=m.Iden.t+Bob
+		m.EncryptKey.t'= m.EncryptKey.t+Bob.sharedKey[Alice]  
+		m.Text.t'= m.Text.t + n 
+		m.Iden.t'=m.Iden.t + Bob
 
 		Bob.to.t'=Bob.to.t + Alice
 		Bob.sendMsg1.t'= Bob.sendMsg1.t + n1->Alice
@@ -137,97 +149,138 @@ pred msg2HonestToIntruder[t,t':Time, Alice,Bob:Honest, n, n1:Nonce, m:Enc]{
 	 
 		
 	//Frame Conditions
-		noMessageSentExcept[t, t', Alice, none]
-		noMessageReceivedExcept[t,t', none, Intruder]
+		noMessageType1SentExcept[t, t', Bob, none]
+		noMessageType2SentExcept[t, t', Bob, none]
+		noMessageType2ReceivedExcept[t,t',none, Intruder]
+		noMessageType1ReceivedExcept[t,t', none, Intruder]
 		noEncriptedMessageChangeExcept[t,t',m]
-	
+		noAgentToChangeExcept[t,t',Bob,none]
+		noAgentFromChangeExcept[t,t',none, Intruder]
 }
 
-
-
-pred msg2IntruderToHonest[t, t': Time, Alice, Bob: Honest, n: Nonce, e: Enc] {
+pred msg2IntruderToHonest[t, t': Time, Alice,Bob: Honest, n: Nonce, e: Enc] {
 	
 	// Pre Conditions
 
-	// Intruder has nonce and encrypted message from Bob
-	// n funciona por causa do init
-//	n in Intruder.receivedMsg1.t.Bob
-//	e in Intruder.receivedMsg2.t
+	 Bob in Intruder.receivedMsg1.t [n]
+   	 e in Intruder.receivedMsg2.t
+	 Alice not in Intruder.sendMsg1.t[n]
+	 Alice not in Intruder.to.t
 
 	// Post Conditions
+	
 	Intruder.sendMsg1.t' = Intruder.sendMsg1.t + n->Alice
 	Intruder.sendMsg2.t' = Intruder.sendMsg2.t + e->Alice
 	Intruder.to.t' = Intruder.to.t + Alice
 	
 	Alice.from.t' = Alice.from.t + Bob
+
 	Alice.receivedMsg1.t' = Alice.receivedMsg1.t + n->Bob
 	Alice.receivedMsg2.t' = Alice.receivedMsg2.t + e->Bob
 
 	// Frame
-	noMessageSentExcept[t, t', none, Intruder]
-	noMessageReceivedExcept[t, t', Alice, none]
-	noEncriptedMessageChangeExcept[t,t', none]
+	noMessageType1SentExcept[t, t', none, Intruder]
+	noMessageType2SentExcept[t, t', none, Intruder]
+	noMessageType1ReceivedExcept[t, t', Alice, none]
+	noMessageType2ReceivedExcept[t,t', Alice, none]
+	noEncriptedMessageChangeExcept[t,t', e]
+	noAgentToChangeExcept[t,t',none, Intruder]
+	noAgentFromChangeExcept[t,t',Alice, none]
 }
 
+pred msg3HonestToIntruder[t, t': Time, Alice, Bob: Honest, n: Nonce, m: Enc]{
 
-
-pred msg3HonestToIntruder[t,t':Time, Alice,Bob:Honest, n :Nonce, m:Enc]{
-	//Pre Conditions
-		
-		Bob in Alice.receivedMsg2.t [n]
-		n in Alice.receivedMsg2.t.Honest
-
-	//Post Conditions
+	//PreConditions
+		Bob in Alice.receivedMsg1.t [n]
+	      	Bob in Alice.from.t
+		Bob in Alice.receivedMsg2.t [m]
+		Bob not in Alice.sendMsg2.t [m]
+	//	Alice not in m.Iden.t	
 	
-		m.EncryptKey.t'= m.EncryptKey.t+Bob.sharedKey[Alice]  
-		m.Text.t'= m.Text.t+n 
-		m.Iden.t'=m.Iden.t+Alice
+	//PostConditions
+		m.EncryptKey.t'= Alice.sharedKey[Bob]  
+		m.Text.t'=  n 
+		m.Iden.t'= Alice
 		
+		Alice.sendMsg2.t'=Alice.sendMsg2.t+m->Bob
 		Alice.to.t'=Alice.to.t + Bob
-		Alice.sendMsg3.t'=Alice.sendMsg3.t + m->Bob
+		//reminder: Alice forgets n of m
 
 		Intruder.from.t'=Intruder.from.t + Alice
-		Intruder.receivedMsg3.t'=Intruder.receivedMsg3.t + m
-	 
+		Intruder.receivedMsg2.t'=Intruder.receivedMsg2.t + m
 		
-	//Frame Conditions
-		noMessageSentExcept[t, t', Bob, none]
-		noMessageReceivedExcept[t,t', none, Intruder]
-		noEncriptedMessageChangeExcept[t,t',m]
+
+	//Frame
+	noMessageType1SentExcept[t, t', none, none]
+	noMessageType2SentExcept[t, t', Alice, none]
+	noMessageType1ReceivedExcept[t, t', none,  none]
+	noMessageType2ReceivedExcept[t,t',none, Intruder]
+	noEncriptedMessageChangeExcept[t,t',m]
+	noAgentToChangeExcept[t,t',Alice,none]
+	noAgentFromChangeExcept[t,t',none, Intruder]
+
 }
 
 pred msg3IntruderToHonest[t, t': Time, Alice, Bob: Honest, e: Enc] {
 	
 	// Pre Conditions
-	e in Intruder.receivedMsg3.t
+	e in Intruder.receivedMsg2.t
+//	Alice in Intruder.from.t
+	some Alice.sendMsg2.t
+
 
 	// Post Conditions
-	Intruder.sendMsg3.t'.Honest = Intruder.sendMsg3.t.Honest + e
+	Intruder.sendMsg2.t' = Intruder.sendMsg2.t + e->Bob
 	Intruder.to.t' = Intruder.to.t + Bob
 	
 	Bob.from.t' = Bob.from.t + Alice
-	Bob.receivedMsg3.t' = Alice.receivedMsg3.t + e-> Alice
+	Bob.receivedMsg2.t' = Bob.receivedMsg2.t + e->Alice
 
 	// Frame
-	noMessageSentExcept[t, t', none, Intruder]
-	noMessageReceivedExcept[t, t', Alice, none]
-	noEncriptedMessageChangeExcept[t,t', none]
+	noMessageType1SentExcept[t, t', none, none]
+	noMessageType2SentExcept[t, t', none, Intruder ]
+	noMessageType1ReceivedExcept[t, t', none,  none]
+	noMessageType2ReceivedExcept[t,t',Bob, none]
+	noEncriptedMessageChangeExcept[t,t',none]
+	noAgentToChangeExcept[t,t',none, Intruder]
+	noAgentFromChangeExcept[t,t',Bob, none]
 }
+
 
 //Frame Conditions
 
-pred noMessageSentExcept[t,t':Time, a: set Honest, i:Intruder]{
-	all h:Honest - a | h.sendMsg1.t'=h.sendMsg1.t and h.to.t'=h.to.t and h.sendMsg2.t'=h.sendMsg2.t 
-	(i=none) implies Intruder.to.t'=Intruder.to.t and Intruder.sendMsg1.t'=Intruder.sendMsg1.t and Intruder.sendMsg2.t'=Intruder.sendMsg2.t
+pred noMessageType1SentExcept[t,t':Time, a: set Honest, i:Intruder]{
+	all h:Honest - a | h.sendMsg1.t'=h.sendMsg1.t
+	(i=none) implies Intruder.sendMsg1.t'=Intruder.sendMsg1.t //and Intruder.sendMsg2.t'=Intruder.sendMsg2.t
 }
 
-pred noMessageReceivedExcept[t,t':Time, a: set Honest, i:Intruder]{
-	all h:Honest - a | h.receivedMsg1.t'=h.receivedMsg1.t and h.from.t'=h.from.t and h.receivedMsg2.t'=h.receivedMsg2.t
-	(i=none) implies Intruder.from.t'=Intruder.from.t and Intruder.receivedMsg1.t'=Intruder.receivedMsg1.t and Intruder.receivedMsg2.t'=Intruder.receivedMsg2.t
+pred noMessageType2SentExcept[t,t':Time, a: set Honest, i:Intruder]{
+	all h:Honest - a |   h.sendMsg2.t'=h.sendMsg2.t 
+	(i=none) implies  Intruder.sendMsg2.t'=Intruder.sendMsg2.t
+}
+
+pred noMessageType1ReceivedExcept[t,t':Time, a: set Honest, i:Intruder]{
+	all h:Honest - a | h.receivedMsg1.t'=h.receivedMsg1.t //and h.receivedMsg2.t'=h.receivedMsg2.t
+	(i=none) implies Intruder.receivedMsg1.t'=Intruder.receivedMsg1.t //and Intruder.receivedMsg2.t'=Intruder.receivedMsg2.t
+}
+
+pred noMessageType2ReceivedExcept[t,t':Time, a: set Honest, i:Intruder]{
+	all h:Honest - a | h.receivedMsg2.t'=h.receivedMsg2.t
+	(i=none) implies Intruder.receivedMsg2.t'=Intruder.receivedMsg2.t
 }
 
 pred noEncriptedMessageChangeExcept[t,t':Time, a:set Enc]{
 	all m:Enc - a | m.Text.t'=m.Text.t and m.Iden.t'=m.Iden.t and m.EncryptKey.t'=m.EncryptKey.t
+}
+
+pred noAgentToChangeExcept[t,t':Time, a:set Honest, i:Intruder]{
+	all h:Honest - a |  h.to.t'=h.to.t
+	(i=none) implies Intruder.to.t'=Intruder.to.t
+}
+
+pred noAgentFromChangeExcept[t,t':Time, a:set Honest, i:Intruder]{
+	all h:Honest - a | h.from.t'=h.from.t 
+	(i=none) implies Intruder.from.t'=Intruder.from.t 
 }
 
 //Facts
@@ -236,7 +289,7 @@ pred AgentFacts{
 	all a:Agent | (Agent-a) in a.pair and a not in a.pair
 	all a,b: Agent | a in b.pair implies ( b in a.pair and one a.sharedKey[b] and one b.sharedKey[a] and a.sharedKey[b] = b.sharedKey[a])
 	all a,b,c: Agent, k:Key | b->k in a.sharedKey and c->k in a.sharedKey implies b=c
- //	all a: Agent, k, k1:Key | k->a in a.(~sharedKey) and k1->a in a.(~sharedKey) implies k=k1	
+	all  disj a,b,c: Agent |   (a.sharedKey[b] != a.sharedKey[c]) 	
 }
 
 
@@ -244,13 +297,13 @@ fact{
 	init [T/first]
 	all t: Time - T/last | trans [t, T/next[t]]
 	all t: Time | all h:Honest | Intruder not in h.from.t and Intruder not in h.to.t 
-	all t: Time | all h:Honest | h not in h.to.t and h not in h.from.t
+	all t: Time | all h:Honest | h not in h.to.t and h not in h.from.t 
 	AgentFacts
 }
 
 //Runs
 
 
-//run msg1IntruderToHonest for 5
-run msg1HonestToIntruder for 3 but exactly 4 Time 
-run msg2HonestToIntruder for 3
+run msg3IntruderToHonest for 7 but exactly 8 Time
+run msg1HonestToIntruder for 7 but exactly 8 Time
+run msg2HonestToIntruder for 3 but exactly 5 Time
