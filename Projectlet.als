@@ -336,7 +336,7 @@ fact{
 }
 
 pred Sequence {
-	some disj t0,t1,t2,t3,t4,t5,t6: Time | some disj a,b:Honest | some disj m, m1:Enc |  { t0=T/first and t1=t0.next and t2=t1.next and t3=t2.next and t4=t3.next and t5=t4.next and t6=t5.next 
+	some disj t0,t1,t2,t3,t4,t5,t6: Time | some disj a,b:Honest | some disj m, m1:Enc |  { t0=T/first and t1=t0.next and t2=t1.next and t3=t2.next and t4=t3.next and t5=t4.next and t6=t5.next
 													and(msg1HonestToIntruder[t0, t1, a, b] and Track.op.t1=msg1HonestToIntruder )  
 													and (msg1IntruderToHonest[t1,t2,a,b] and Track.op.t2=msg1IntruderToHonest) 
 													and (msg2HonestToIntruder[t2,t3,a,b, m] and Track.op.t3=msg2HonestToIntruder)
@@ -344,6 +344,29 @@ pred Sequence {
 													and (msg3HonestToIntruder[t4,t5,a,b,m1] and Track.op.t5=msg3HonestToIntruder)
 													and (msg3IntruderToHonest[t5,t6,a,b,m1] and Track.op.t6=msg3IntruderToHonest)   
 	} 
+}
+
+// If Alice received nB, {nA} * kAB then
+// Bob has sent before {nA} * kAB to Intruder
+
+
+// 10
+pred AliceAuthenticatesBob[disj Alice, Bob: Honest, e: Enc] {
+	
+	// t =>  msg2IntruderToHonest 		Time when alice received nonce and {nA} * kAB from Intruder ("Bob") 
+	// t.prev => msg2HonestToIntruder		Time when bob sent
+	// t.prev.prev => msg1.IntruderToHonest  Time when bob received nA
+
+	some t: Time | let e = Alice.receivedMsg2.t.Bob {
+		Bob.receivedMsg1[e.Text.(t.prev)].(t.prev.prev) = Alice and Alice.sharedKey.(e.EncryptKey.(t.prev)) = Bob implies {
+			Bob.sendMsg2.(t.prev).Alice = e
+		}
+	}
+}
+
+// 10
+assert AliceAuthsBob {
+	all disj a, b: Honest, e: Enc | AliceAuthenticatesBob[a,b,e]
 }
 
 //Runs
@@ -356,3 +379,5 @@ run msg3HonestToIntruder for 3 but exactly 8 Time
 run msg3IntruderToHonest for 3 but exactly 8 Time
 run Sequence for 7 but 3 Agent
 
+check canDoProtocol for 3 but exactly 8 Time
+check AliceAuthsBob for 3
