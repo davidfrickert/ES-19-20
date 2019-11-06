@@ -406,7 +406,12 @@ assert BobAuthsAlice{
 
 //13 
 assert ProtocolInit{
-	
+	some t0, t1, t2: Time, e:Enc, disj Alice, Bob: Honest | {
+		t2 = t1.next
+		Alice in Bob.receivedMsg2.t2 [e] and e.EncryptKey.t2= Alice.sharedKey[Bob] and e.Text.t2 = Bob.sendMsg1.t2.Alice implies {
+			some Alice.sendMsg1.t0.Bob or some Bob.sendMsg1.t0.Alice
+		}
+	}
 }
 //Runs
 
@@ -418,5 +423,6 @@ run msg3HonestToIntruder for 3 but exactly 8 Time
 run msg3IntruderToHonest for 3 but exactly 8 Time
 run Sequence for 7 but 3 Agent
 
-check AliceAuthsBob for 3
-check BobAuthsAlice for 3
+check AliceAuthsBob for 3 but exactly 8 Time
+check BobAuthsAlice for 3 but exactly 8 Time
+check ProtocolInit for 3 but exactly 8 Time
