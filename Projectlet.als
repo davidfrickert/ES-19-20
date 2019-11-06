@@ -160,13 +160,14 @@ pred msg2HonestToIntruder[t,t':Time, Alice,Bob:Honest, nB:Nonce, m:Enc]{
 		Bob.receivedMsg1.t'= Bob.receivedMsg1.t - (nA->Alice)		
 
 		Intruder.from.t'=Intruder.from.t + Bob
-		Intruder.receivedMsg1.t'=Intruder.receivedMsg1.t + nB
 		Intruder.receivedMsg2.t'=Intruder.receivedMsg2.t + m
-		//8 ?
-		m.EncryptKey.t' in Intruder.SavedKeys.t implies Intruder.receivedMsg1.t'=Intruder.receivedMsg1.t' + m.Text.t' 
-	
-}	 
+
+		//8 Decrypt
+		Intruder.receivedMsg1.t'=Intruder.receivedMsg1.t + nB or ( m.EncryptKey.t' in Intruder.SavedKeys.t and Intruder.receivedMsg1.t'=Intruder.receivedMsg1.t + (nB + m.Text.t'))
 		
+}
+		
+
 	//Frame Conditions
 		noMessageType1SentExcept[t, t', Bob, none]
 		noMessageType2SentExcept[t, t', Bob, none]
@@ -200,8 +201,8 @@ pred msg2IntruderToHonest[t, t': Time, Alice,Bob: Honest, e: Enc, nB:Nonce] {
 
 	let send=Alice.sendMsg1.t, nA={ disj n: Nonce | one n and n in send.univ and n->Bob in send} | {
 			
-	//8 Intruder can decrypt Enc and save the nonce
-	e in Intruder.receivedMsg2.t or (e.EncryptKey.t in Intruder.SavedKeys.t and e.Text.t in Intruder.receivedMsg1.t )
+	//8 Intruder can encrypt Enc with the nonce 
+	e in Intruder.receivedMsg2.t or (e.EncryptKey.t in Intruder.SavedKeys.t and nA in Intruder.receivedMsg1.t )
 			nA in e.Text.t and e.EncryptKey.t in Alice.sharedKey[Bob] implies {
 
 	// Post Conditions
@@ -248,10 +249,10 @@ pred msg3HonestToIntruder[t, t': Time, Alice, Bob: Honest, m: Enc]{
 		Alice.to.t'=Alice.to.t + Bob
 		Alice.receivedMsg1.t' = Alice.receivedMsg1.t - (nB->Bob)
 		Intruder.from.t'=Intruder.from.t + Alice
-		Intruder.receivedMsg2.t'=Intruder.receivedMsg2.t + m
 
-			//8
-		m.EncryptKey.t' in Intruder.SavedKeys.t implies Intruder.receivedMsg1.t'=Intruder.receivedMsg1.t' + m.Text.t'
+	//8 Decrypt
+		Intruder.receivedMsg2.t'=Intruder.receivedMsg2.t + m or ( m.EncryptKey.t' in Intruder.SavedKeys.t and Intruder.receivedMsg1.t'=Intruder.receivedMsg1.t + m.Text.t' )
+
 	}
 
 	//Frame Conditions
@@ -287,7 +288,7 @@ pred msg3IntruderToHonest[t, t': Time, Alice, Bob: Honest, e: Enc] {
 
 	let send=Bob.sendMsg1.t, nB={ n: Nonce | one n and n in send.univ and n->Alice in send} | {
 
-		//8 Intruder can decript Enc and save the nonce
+		//8 Intruder can encript Enc
 		e in Intruder.receivedMsg2.t or (e.EncryptKey.t in Intruder.SavedKeys.t and e.Text.t in Intruder.receivedMsg1.t )
 		nB=e.Text.t and e.EncryptKey.t in Bob.sharedKey[Alice] implies {
 
