@@ -375,26 +375,16 @@ assert AliceAuthsBob {
 
 
 
-/*
+
 //12 
 assert BobAuthsAlice{
-	some t1, t2: Time, m:Enc , disj Alice, Bob:Honest | { t2=t1.next
-	     and (Alice in Bob.receivedMsg2.t2 [m] and m.EncryptKey.t2= Alice.sharedKey[Bob] and m.Text.t2 = Bob.sendMsg1.t2.Alice  implies Bob in (Alice.sendMsg2).t1 [m] ) }
-}*/
-
-//12
-assert BobAuthenticatesAlice{
-//	some t1,t2:Time, disj Alice,Bob:Honest, m:Enc | t2=t1.next and msg3IntruderToHonest[t1,t2, Alice, Bob, m] implies msg3HonestToIntruder[t1.prevs, t1,Alice,Bob,m]// and m.Iden.t2=Alice
+	all t1, t2: Time, m:Enc , Alice, Bob:Honest | { msg3IntruderToHonest[t1, t2, Alice, Bob, m ]   implies ( m in Alice.sendMsg2.(t2.prevs).Bob ) }
 }
 
 //13 
 assert ProtocolInit{
-	some t0, t1, t2: Time, e:Enc, disj Alice, Bob: Honest | {
-		t2 = t1.next and t1=t0.next
-		Alice in Bob.receivedMsg2.t2 [e] and e.EncryptKey= Alice.sharedKey[Bob] and e.Text= Bob.sendMsg1.t2.Alice implies {
-			some Alice.sendMsg1.t0.Bob or some Bob.sendMsg1.t0.Alice
-		}
-	}
+	all t1, t2:Time, m:Enc, Alice, Bob:Honest, n:Nonce| {  msg3IntruderToHonest[t1, t2, Bob,  Alice, m ] implies 
+											msg1HonestToIntruder[ T/first, (T/first).next , Alice, Bob, n] or msg1HonestToIntruder[T/first, (T/first).next, Bob, Alice, n]}
 }
 //Runs
 
@@ -407,5 +397,5 @@ run msg3IntruderToHonest for 3 but exactly 8 Time
 run Sequence for 7 but 3 Agent
 
 check AliceAuthsBob for 3 but exactly 8 Time
-check BobAuthenticatesAlice for 5 but exactly 8 Time
-check ProtocolInit for 3 but exactly 8 Time
+check BobAuthsAlice for 7
+check ProtocolInit for 7 
