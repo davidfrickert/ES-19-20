@@ -191,15 +191,18 @@ pred msg2IntruderToHonest[t, t': Time, Alice,Bob: Honest, e: Enc, nB:Nonce] {
 
 	let send=Alice.sendMsg1.t, nA={ disj n: Nonce | one n and n in send.univ and n->Bob in send} | {
 
+		(e in Intruder.receivedMsg2.t and e in Bob.sendMsg2.t.Alice) 
+				or
+//8 Intruder can encrypt Enc with the nonce 
+		 ( Bob.sharedKey[Alice] in Intruder.SavedKeys.(t'.prevs) 
+			and
+ 		(nA + nB) in Intruder.receivedMsg1.(t'.prevs) and no e.Iden)
+
 		e.EncryptKey = Bob.sharedKey[Alice]  
 		e.Text = nA
 		e.Iden= Bob                 //Fix
-		e in Intruder.receivedMsg2.t	
 
-	//8 Intruder can encrypt Enc with the nonce 
-	e in Intruder.receivedMsg2.t // or (e.EncryptKey in Intruder.SavedKeys.t and nA in Intruder.receivedMsg1.t )
 
-			nA in e.Text and e.EncryptKey in Alice.sharedKey[Bob] implies {
 	// Post Conditions
 			Intruder.sendMsg1.t' = Intruder.sendMsg1.t + nB
 			Intruder.sendMsg2.t' = Intruder.sendMsg2.t + e
@@ -207,7 +210,7 @@ pred msg2IntruderToHonest[t, t': Time, Alice,Bob: Honest, e: Enc, nB:Nonce] {
 			Alice.from.t' = Alice.from.t + Bob
 			Alice.receivedMsg1.t' = Alice.receivedMsg1.t + nB->Bob
 			Alice.receivedMsg2.t' = Alice.receivedMsg2.t + e->Bob
-		}
+
 }
 
 	// Frame
@@ -363,24 +366,13 @@ pred Sequence {
 	} 
 }
 
-
-// If Alice received nB, {nA} * kAB then
-// Bob has sent before {nA} * kAB to Intruder
-
-/*
 // 11
-pred AliceAuthenticatesBob[disj Alice, Bob: Honest, e: Enc] {
-	
-	// t =>  msg2IntruderToHonest 		Time when alice received nonce and {nA} * kAB from Intruder ("Bob") 
-	// t.prev => msg2HonestToIntruder		Time when bob sent
-	// t.prev.prev => msg1.IntruderToHonest  Time when bob received nA
-
-	some t: Time | let e = Alice.receivedMsg2.t.Bob {
-		Bob.receivedMsg1[e.Text.(t.prev)].(t.prev.prev) = Alice and Alice.sharedKey.(e.EncryptKey.(t.prev)) = Bob implies {
-			Bob.sendMsg2.(t.prev).Alice = e
-		}
+assert AliceAuthsBob {
+	all t1, t2: Time | all Alice, Bob: Honest, m: Enc, n: Nonce | msg2IntruderToHonest[t1, t2, Alice, Bob, m, n] implies {
+		m in Bob.sendMsg2.(t2.prevs).Alice
 	}
-}*/
+}
+
 
 
 /*
@@ -414,6 +406,6 @@ run msg3HonestToIntruder for 3 but exactly 8 Time
 run msg3IntruderToHonest for 3 but exactly 8 Time
 run Sequence for 7 but 3 Agent
 
-//check AliceAuthsBob for 3 but exactly 8 Time
+check AliceAuthsBob for 3 but exactly 8 Time
 check BobAuthenticatesAlice for 5 but exactly 8 Time
 check ProtocolInit for 3 but exactly 8 Time
