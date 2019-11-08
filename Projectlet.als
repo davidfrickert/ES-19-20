@@ -12,6 +12,7 @@ abstract sig Agent{
 }
 
 sig Honest extends Agent{
+	// 9 Having our sent and received msg's related to Honest allows multiple protocols at the same time
 	sendMsg1: Nonce  -> Honest -> Time,
 	sendMsg2: Enc -> Honest -> Time,
 	receivedMsg1: Nonce   ->  Honest ->Time,
@@ -54,7 +55,7 @@ pred init [t: Time]{
 
 	//7 Initially the intruder knows some nonces, keys and encrypted messages
 	some Intruder.receivedMsg1.t
-	some m:Enc | some Intruder.receivedMsg2.t and m in Intruder.receivedMsg2.t // and one EncryptKey  and one Text
+	some Intruder.receivedMsg2.t
 	some Intruder.SavedKeys.t
 	
 }
@@ -69,6 +70,7 @@ pred trans[t, t':Time]{
 	} 
 }
 
+//9 Having 2 Honest as parameters to the predicates allow them to run for any combination if they meet the conditions
 pred msg1HonestToIntruder[t,t':Time, Alice,Bob:Honest, n1:Nonce] {
 	
 	//Pre conditions 
@@ -76,12 +78,10 @@ pred msg1HonestToIntruder[t,t':Time, Alice,Bob:Honest, n1:Nonce] {
 	//Fresh Nonce
 	n1 not in (Honest.sendMsg1.t).univ and n1 not in Intruder.receivedMsg1.t  
 
-	//1  No Pre Conditions for Agents only requires a fresh nonce
+	//1 No Pre Conditions for Agents only requires a fresh nonce
 	//5 No Pre Conditions for Intruders to receive a message
  
-
-	//Post Conditions
-					 
+	//Post Conditions	 
 	Alice.sendMsg1.t'= Alice.sendMsg1.t + (n1->Bob)
 	Alice.to.t'= Alice.to.t + Bob
 	Intruder.from.t'= Intruder.from.t + Alice
@@ -136,21 +136,16 @@ pred msg2HonestToIntruder[t,t':Time, Alice,Bob:Honest, m:Enc, nB:Nonce]{
 
 	let  nA={ n: Nonce |  one n and Alice in Bob.receivedMsg1.t[n] } | {
 
-	m.Text = nA 
-	m.EncryptKey = Bob.sharedKey[Alice]  
-	m.Iden= Bob                 //Fix
-	m not in (Honest.sendMsg2.t).univ and m not in Intruder.receivedMsg2.t 
+		m.Text = nA 
+		m.EncryptKey = Bob.sharedKey[Alice]  
+		m.Iden= Bob                 //FIX
+		m not in (Honest.sendMsg2.t).univ and m not in Intruder.receivedMsg2.t 
 
 	//Fresh nonce and Enc for Bob to send to Alice
-	nB not in (Honest.sendMsg1.t).univ and nB not in Intruder.receivedMsg1.t //and nB not in Enc.Text 
-
-	 
-
+		nB not in (Honest.sendMsg1.t).univ and nB not in Intruder.receivedMsg1.t
 	//5 No Pre Conditions for Intruder to receive a message
 	
-	
 	//Post Conditions
-
 		Bob.to.t'=Bob.to.t + Alice
 		Bob.sendMsg1.t'= Bob.sendMsg1.t + nB->Alice
 		Bob.sendMsg2.t'=Bob.sendMsg2.t + m->Alice
@@ -162,16 +157,16 @@ pred msg2HonestToIntruder[t,t':Time, Alice,Bob:Honest, m:Enc, nB:Nonce]{
 		//8 Decrypt
 		Intruder.receivedMsg1.t'=Intruder.receivedMsg1.t + nB or ( m.EncryptKey in Intruder.SavedKeys.t and Intruder.receivedMsg1.t'=Intruder.receivedMsg1.t + (nB + m.Text))
 		
-}
+	}
 		
 	//Frame Conditions
-		noMessageType1SentExcept[t, t', Bob, none]
-		noMessageType2SentExcept[t, t', Bob, none]
-		noMessageType2ReceivedExcept[t,t',none, Intruder]
-		noMessageType1ReceivedExcept[t,t', Bob, Intruder]
-		noAgentToChangeExcept[t,t',Bob,none]
-		noAgentFromChangeExcept[t,t',none, Intruder]
-		noSavedKeyChangesExcept[t,t', none]
+	noMessageType1SentExcept[t, t', Bob, none]
+	noMessageType2SentExcept[t, t', Bob, none]
+	noMessageType2ReceivedExcept[t,t',none, Intruder]
+	noMessageType1ReceivedExcept[t,t', Bob, Intruder]
+	noAgentToChangeExcept[t,t',Bob,none]
+	noAgentFromChangeExcept[t,t',none, Intruder]
+	noSavedKeyChangesExcept[t,t', none]
 }
 
 pred msg2IntruderToHonest[t, t': Time, Alice,Bob: Honest, e: Enc, nB:Nonce] {
@@ -200,16 +195,16 @@ pred msg2IntruderToHonest[t, t': Time, Alice,Bob: Honest, e: Enc, nB:Nonce] {
 
 		e.EncryptKey = Bob.sharedKey[Alice]  
 		e.Text = nA
-		e.Iden= Bob                 //Fix
+		e.Iden= Bob                 //FIX
 
 
 	// Post Conditions
-			Intruder.sendMsg1.t' = Intruder.sendMsg1.t + nB
-			Intruder.sendMsg2.t' = Intruder.sendMsg2.t + e
-			Intruder.to.t' = Intruder.to.t + Alice		
-			Alice.from.t' = Alice.from.t + Bob
-			Alice.receivedMsg1.t' = Alice.receivedMsg1.t + nB->Bob
-			Alice.receivedMsg2.t' = Alice.receivedMsg2.t + e->Bob
+		Intruder.sendMsg1.t' = Intruder.sendMsg1.t + nB
+		Intruder.sendMsg2.t' = Intruder.sendMsg2.t + e
+		Intruder.to.t' = Intruder.to.t + Alice		
+		Alice.from.t' = Alice.from.t + Bob
+		Alice.receivedMsg1.t' = Alice.receivedMsg1.t + nB->Bob
+		Alice.receivedMsg2.t' = Alice.receivedMsg2.t + e->Bob
 
 }
 
@@ -238,7 +233,7 @@ pred msg3HonestToIntruder[t, t': Time, Alice, Bob: Honest, m: Enc]{
 
 		m.EncryptKey = Alice.sharedKey[Bob]  
 		m.Text = nB
-		m.Iden = Alice      //Fix
+		m.Iden = Alice      //FIX
 	
 	//5 No Pre condition for Intruder to receive a message
 	
@@ -280,20 +275,20 @@ pred msg3IntruderToHonest[t, t': Time, Alice, Bob: Honest, e: Enc] {
 	
 	let send=Bob.sendMsg1.t, nB={ n: Nonce | one n and n in send.univ and n->Alice in send} | {
 
-	e.EncryptKey = Alice.sharedKey[Bob]  
-	e.Iden=Alice     //Fix
-	e.Text = nB
+		e.EncryptKey = Alice.sharedKey[Bob]  
+		e.Iden=Alice     //FIX
+		e.Text = nB
 
-		//8 Intruder can encript Enc
+	//8 Intruder can encript Enc
 		e in Intruder.receivedMsg2.t or (e.EncryptKey in Intruder.SavedKeys.t and e.Text in Intruder.receivedMsg1.t )
-		nB=e.Text and e.EncryptKey in Bob.sharedKey[Alice] implies {
+
 
 	// Post Conditions
 		Intruder.sendMsg2.t' = Intruder.sendMsg2.t + e
 		Intruder.to.t' = Intruder.to.t + Bob
 		Bob.from.t' = Bob.from.t + Alice
 		Bob.receivedMsg2.t' = Bob.receivedMsg2.t + e->Alice
-		}
+		
 	}
 	// Frame
 	noMessageType1SentExcept[t, t', none, none]
@@ -373,9 +368,6 @@ assert AliceAuthsBob {
 	}
 }
 
-
-
-
 //12 
 assert BobAuthsAlice{
 	all t1, t2: Time, m:Enc , Alice, Bob:Honest | { msg3IntruderToHonest[t1, t2, Alice, Bob, m ]   implies ( m in Alice.sendMsg2.(t2.prevs).Bob ) }
@@ -386,16 +378,20 @@ assert ProtocolInit{
 	all t1, t2:Time, m:Enc, Alice, Bob:Honest, n:Nonce| {  msg3IntruderToHonest[t1, t2, Bob,  Alice, m ] implies 
 											msg1HonestToIntruder[ T/first, (T/first).next , Alice, Bob, n] or msg1HonestToIntruder[T/first, (T/first).next, Bob, Alice, n]}
 }
-//Runs
 
+//Runs
 run msg1HonestToIntruder for 3 but exactly 8 Time
 run msg1IntruderToHonest for 3 but exactly 8 Time
 run msg2HonestToIntruder for 3 but exactly 8 Time
 run msg2IntruderToHonest for 3 but exactly 8 Time
 run msg3HonestToIntruder for 3 but exactly 8 Time
 run msg3IntruderToHonest for 3 but exactly 8 Time
-run Sequence for 7 but 3 Agent
 
+//10
+run Sequence for 7 but 3 Agent
+//11
 check AliceAuthsBob for 3 but exactly 8 Time
+//12
 check BobAuthsAlice for 7
+//13
 check ProtocolInit for 7 
