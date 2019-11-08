@@ -195,6 +195,7 @@ pred msg2IntruderToHonest[t, t': Time, Alice,Bob: Honest, e: Enc, nB:Nonce] {
 
 		e.EncryptKey = Bob.sharedKey[Alice]  
 		e.Text = nA
+		//11, 12
 		e.Iden= Bob                 //FIX
 
 
@@ -233,6 +234,7 @@ pred msg3HonestToIntruder[t, t': Time, Alice, Bob: Honest, m: Enc]{
 
 		m.EncryptKey = Alice.sharedKey[Bob]  
 		m.Text = nB
+		//12
 		m.Iden = Alice      //FIX
 	
 	//5 No Pre condition for Intruder to receive a message
@@ -276,6 +278,7 @@ pred msg3IntruderToHonest[t, t': Time, Alice, Bob: Honest, e: Enc] {
 	let send=Bob.sendMsg1.t, nB={ n: Nonce | one n and n in send.univ and n->Alice in send} | {
 
 		e.EncryptKey = Alice.sharedKey[Bob]  
+		//12
 		e.Iden=Alice     //FIX
 		e.Text = nB
 
@@ -390,8 +393,8 @@ run msg3IntruderToHonest for 3 but exactly 8 Time
 //10
 run Sequence for 7 but 3 Agent
 //11
-check AliceAuthsBob for 3 but exactly 8 Time
+check AliceAuthsBob for 7
 //12
 check BobAuthsAlice for 7
 //13
-check ProtocolInit for 7 
+check ProtocolInit for 7
