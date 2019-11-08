@@ -189,9 +189,9 @@ pred msg2IntruderToHonest[t, t': Time, Alice,Bob: Honest, e: Enc, nB:Nonce] {
 		(e in Intruder.receivedMsg2.t and e in Bob.sendMsg2.t.Alice) 
 				or
 //8 Intruder can encrypt Enc with the nonce 
-		 ( Bob.sharedKey[Alice] in Intruder.SavedKeys.(t'.prevs) 
+		 ( Bob.sharedKey[Alice] in Intruder.SavedKeys.t
 			and
- 		(nA + nB) in Intruder.receivedMsg1.(t'.prevs) and no e.Iden)
+ 		(nA + nB) in Intruder.receivedMsg1.t and no e.Iden)
 
 		e.EncryptKey = Bob.sharedKey[Alice]  
 		e.Text = nA
