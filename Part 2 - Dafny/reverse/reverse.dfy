@@ -5,6 +5,69 @@
 
 include "Io.dfy"
 
+method countItem(arr: array<byte>, item: byte) returns (count: nat) 
+requires arr.Length > 0
+// ensures count == countF(arr[..], item)
+{
+  var i := 0;
+  count := 0;
+
+  
+  while (i < arr.Length) 
+  // invariante para provar a pós-condição comentada?
+  decreases arr.Length - i
+  {
+    if arr[i] == item {
+      count := count + 1;
+    }
+    i := i + 1;
+  }
+}
+
+function countF(items: seq<byte>, item: byte): nat
+
+{
+  multiset(items)[item]
+}
+
+method splitArrayBy(arr: array<byte>, item: byte) returns (a: array<seq<byte>>)
+requires arr.Length > 0
+{
+  var from := 0;
+  var to := 0;
+  var l_cnt := 0;
+  var lines := countItem(arr, item);
+
+  // se alguem souber como se faz um array sem ser com o new q substitua isto, é para caso não houver newline retorna tudo um array com a seq toda
+  if lines == 0 {
+    a := new seq<byte>[1];
+    a[0] := arr[..];
+    return a;
+  }
+
+  a := new seq<byte>[lines];
+
+  while(to < arr.Length && from < arr.Length) 
+  decreases arr.Length - to
+  decreases arr.Length - from
+  invariant l_cnt < lines
+  invariant to + 1 > from
+  {
+
+    if (arr[to] == item) {
+      a[l_cnt] := arr[from..to + 1];
+      // if para não dar erro no a[l_cnt] + invariant
+      if l_cnt < lines - 1 { l_cnt := l_cnt + 1; }
+      
+      from := to;
+    } 
+
+    to := to + 1;
+
+  }
+  
+}
+
 method {:main} Main(ghost env: HostEnvironment?)
   requires env != null && env.Valid() && env.ok.ok();
   modifies env.ok
@@ -60,9 +123,20 @@ method {:main} Main(ghost env: HostEnvironment?)
 
     var i := buffer.Length;
     if i > 0 {
-      print buffer[i - 1] as char; print "\n";
+      print buffer[i - 1]; print "\n";
     }
 
+    print buffer[..]; print "\n";
+
     ok := fs.Close();
+
+    if buffer.Length == 0 {
+      return;
+    }
+    var res := splitArrayBy(buffer, 10);
+
+    if res.Length > 1 {
+      print res[1];
+    }
 
 }
