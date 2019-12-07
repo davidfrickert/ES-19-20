@@ -5,15 +5,22 @@
 
 include "Io.dfy"
 
+method ArrayFromSeq<T>(s: seq<T>) returns (a: array<T>)
+  ensures a[..] == s
+{
+  a := new T[|s|] ( i requires 0 <= i < |s| => s[i] );
+}
+
 method countItem(arr: array<byte>, item: byte) returns (count: nat) 
 requires arr.Length > 0
-// ensures count == countF(arr[..], item)
+ensures count == countF(arr[0..arr.Length], item)
 {
   var i := 0;
   count := 0;
 
   
   while (i < arr.Length) 
+  invariant i <= arr.Length && count == countF(arr[0..i], item) 
   // invariante para provar a pós-condição comentada?
   decreases arr.Length - i
   {
@@ -30,36 +37,33 @@ function countF(items: seq<byte>, item: byte): nat
   multiset(items)[item]
 }
 
-method splitArrayBy(arr: array<byte>, item: byte) returns (a: array<seq<byte>>)
+method splitArrayBy(arr: array<byte>, item: byte) returns (a: array<array<byte>>)
 requires arr.Length > 0
+ensures fresh(a)
+ensures a.Length > 0
 {
   var from := 0;
   var to := 0;
   var l_cnt := 0;
   var lines := countItem(arr, item);
 
-  // se alguem souber como se faz um array sem ser com o new q substitua isto, é para caso não houver newline retorna tudo um array com a seq toda
   if lines == 0 {
-    a := new seq<byte>[1];
-    a[0] := arr[..];
-    return a;
+    return new array<byte>[1] (_ => arr);
   }
 
-  a := new seq<byte>[lines];
+  a := new array<byte>[lines];
 
-  while(to < arr.Length && from < arr.Length) 
+  while(to < arr.Length && from < arr.Length && l_cnt < lines) 
   decreases arr.Length - to
   decreases arr.Length - from
-  invariant l_cnt < lines
+  invariant l_cnt <= lines
   invariant to + 1 > from
   {
 
     if (arr[to] == item) {
-      a[l_cnt] := arr[from..to + 1];
-      // if para não dar erro no a[l_cnt] + invariant
-      if l_cnt < lines - 1 { l_cnt := l_cnt + 1; }
-      
-      from := to;
+      a[l_cnt] := ArrayFromSeq(arr[from..to + 1]);
+      l_cnt := l_cnt + 1;
+      from := to + 1;
     } 
 
     to := to + 1;
@@ -68,17 +72,37 @@ requires arr.Length > 0
   
 }
 
+method Flatten(a: array<array<byte>>) returns (f: array<byte>) 
+
+{
+  var all_bytes := [];
+  var line := 0;
+
+  while ( line < a.Length) 
+
+  {
+    all_bytes := all_bytes + a[line][..];
+    line := line + 1;
+  }
+
+  f := ArrayFromSeq(all_bytes);
+
+}
+
+
+
 method {:main} Main(ghost env: HostEnvironment?)
   requires env != null && env.Valid() && env.ok.ok();
   modifies env.ok
   modifies env.files
 {
     var ncmd := HostConstants.NumCommandLineArgs(env);
-    print ncmd; print "\n";
 
     if ncmd != 3 {
-      print ncmd; print " files supplied.";
-      print "Command requires src file and dst file... Example: ./reverse.exe Source Dest";
+      if ncmd >= 1 {
+        print ncmd - 1; print " files supplied.\n";
+      }
+      print "Command requires src file and dst file... Example: ./reverse.exe Source Dest\n";
       return;
     }
 
@@ -90,7 +114,7 @@ method {:main} Main(ghost env: HostEnvironment?)
     ok := FileStream.FileExists(srcFile, env);
 
     if !ok {
-      print "Source file doesn't exist.. Exiting";
+      print "In file '"; print srcFile; print "'doesn't exist";
       return;
     }
 
@@ -99,44 +123,70 @@ method {:main} Main(ghost env: HostEnvironment?)
     ok, len := FileStream.FileLength(srcFile, env);
 
     if !ok {
-      print "File length failed... Exiting";
+      print "Couldn't stat file '"; print srcFile; print "' length";
       return;
     }
 
     var fs;
 
     ok, fs := FileStream.Open(srcFile, env);
-
+    
     if !ok {
-      print "Failed to open file "; print srcFile; print "\n";
+      print "Problems opening file "; print srcFile; print "\n";
       return;
     }
 
     var buffer := new byte[len];
-
     ok := fs.Read(0, buffer, 0, len);
 
     if !ok {
-      print "Failed to read source file '"; print srcFile; print "'\n";
+      print "Problems reading in file'"; print srcFile; print "'\n";
       return;
     }
 
     var i := buffer.Length;
-    if i > 0 {
-      print buffer[i - 1]; print "\n";
-    }
-
-    print buffer[..]; print "\n";
 
     ok := fs.Close();
+
+    if !ok {
+      print "Problems closing in file '"; print srcFile; print "'\n";
+      return;
+    }
 
     if buffer.Length == 0 {
       return;
     }
     var res := splitArrayBy(buffer, 10);
-
-    if res.Length > 1 {
-      print res[1];
+    var flat := Flatten(res);
+    var ofs; ok, ofs := FileStream.Open(dstFile, env);
+    if !ok {
+      print "Problems opening out file "; print dstFile; print "\n";
+      return;
     }
+    
+    
+
+    // o dafny queixa-se se eu meter simplesmente flat.Length pq é int e ele quer int32.. n consegui arranjar solução bonita
+    var start;
+    if -0x80000000 <= flat.Length < 0x80000000 {
+      start := flat.Length as int32;
+    } else { return; }
+
+   
+    ok := ofs.Write(0, flat, 0, start);
+    if !ok {
+      print "Problems writing to out file '"; print dstFile; print "'\n";
+      return;
+    }
+
+    ok := ofs.Close();
+    if !ok {
+      print "Problems closing out file '"; print dstFile; print "'\n";
+      return;
+    }
+
+    print "'"; print srcFile; print "' -> '"; print dstFile; print "'\n";
+
+    
 
 }
