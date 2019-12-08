@@ -6,7 +6,7 @@
 include "Io.dfy"
 
 method ArrayFromSeq<T>(s: seq<T>) returns (a: array<T>)
-  ensures a[..] == s
+  ensures a[0.. a.Length] == s
 {
   a := new T[|s|] ( i requires 0 <= i < |s| => s[i] );
 }
@@ -18,10 +18,8 @@ ensures count == countF(arr[0..arr.Length], item)
   var i := 0;
   count := 0;
 
-  
   while (i < arr.Length) 
   invariant i <= arr.Length && count == countF(arr[0..i], item) 
-  // invariante para provar a pós-condição comentada?
   decreases arr.Length - i
   {
     if arr[i] == item {
@@ -39,13 +37,13 @@ function countF(items: seq<byte>, item: byte): nat
 
 method splitArrayBy(arr: array<byte>, item: byte) returns (a: array<array<byte>>)
 requires arr.Length > 0
-ensures fresh(a)
-ensures a.Length > 0
+ensures fresh(a) && a.Length > 0
 {
   var from := 0;
   var to := 0;
   var l_cnt := 0;
   var lines := countItem(arr, item);
+  lines := lines + 1;
 
   if lines == 0 {
     return new array<byte>[1] (_ => arr);
@@ -56,20 +54,22 @@ ensures a.Length > 0
   while(to < arr.Length && from < arr.Length && l_cnt < lines) 
   decreases arr.Length - to
   decreases arr.Length - from
-  invariant l_cnt <= lines
-  invariant to + 1 > from
+  invariant l_cnt <= lines && to + 1 > from
   {
-
     if (arr[to] == item) {
       a[l_cnt] := ArrayFromSeq(arr[from..to + 1]);
       l_cnt := l_cnt + 1;
       from := to + 1;
+    }
+    if(l_cnt == lines-1 && to == arr.Length-1 ){
+      var tmp := [];
+      var n := [(10 as byte)];
+      tmp := arr[from..] + n;
+      a[l_cnt] := ArrayFromSeq(tmp);
+      l_cnt := l_cnt + 1;
     } 
-
     to := to + 1;
-
   }
-  
 }
 
 method Flatten(a: array<array<byte>>) returns (f: array<byte>) 
@@ -79,9 +79,10 @@ method Flatten(a: array<array<byte>>) returns (f: array<byte>)
   var line := 0;
 
   while ( line < a.Length) 
-
+    decreases a.Length - line
   {
-    all_bytes := all_bytes + a[line][..];
+    var inside := a[line];
+    all_bytes := all_bytes + inside[0..inside.Length];
     line := line + 1;
   }
 
@@ -89,7 +90,36 @@ method Flatten(a: array<array<byte>>) returns (f: array<byte>)
 
 }
 
+method reverse(line: array<array<byte>>) returns (r: array<array<byte>>) 
+  modifies line
+  requires line.Length >= 0
+  ensures line.Length == r.Length 
+{
+  var i := 0;
+  var l := line.Length;
+  r := line;
 
+  
+    while i < (l/2)
+      decreases (l/2) - i
+    {
+      var tmp := r[i];
+      r[i] := r[l-1-i];
+      r[l-1-i] := tmp;
+      i:= i + 1;
+    }
+  
+  //Basic version
+  //r := new array[line.Length];
+  
+  /* while i < l
+    decreases l-i
+    invariant i >= 0 && i <= line.Length && (line.Length -i) <= line.Length && (i >= l ==> line.Length == r.Length)  //&& r.Length == i 
+  {
+    r[i] := line[l-1-i];
+    i := i + 1;
+  } */
+}
 
 method {:main} Main(ghost env: HostEnvironment?)
   requires env != null && env.Valid() && env.ok.ok();
@@ -126,7 +156,7 @@ method {:main} Main(ghost env: HostEnvironment?)
       print "Couldn't stat file '"; print srcFile; print "' length";
       return;
     }
-
+    
     var fs;
 
     ok, fs := FileStream.Open(srcFile, env);
@@ -156,16 +186,19 @@ method {:main} Main(ghost env: HostEnvironment?)
     if buffer.Length == 0 {
       return;
     }
-    var res := splitArrayBy(buffer, 10);
+    
+    var split := splitArrayBy(buffer, 10);
+    
+    var res := reverse(split);
+  
     var flat := Flatten(res);
+    var t := 0;
     var ofs; ok, ofs := FileStream.Open(dstFile, env);
     if !ok {
       print "Problems opening out file "; print dstFile; print "\n";
       return;
     }
-    
-    
-
+  
     // o dafny queixa-se se eu meter simplesmente flat.Length pq é int e ele quer int32.. n consegui arranjar solução bonita
     var start;
     if -0x80000000 <= flat.Length < 0x80000000 {
