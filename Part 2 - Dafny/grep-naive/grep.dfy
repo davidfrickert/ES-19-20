@@ -11,12 +11,11 @@ predicate inRange(i: int, len: int, j: int, len2: int) {
   0 <= i < len && 0 <= j < len2
 }
 
-method Grep(word: array<byte>, query: array<char>) returns (found: string, pos: int)
+method Grep(word: array<byte>, query: array<char>) returns (found: bool, pos: int)
 requires word.Length > 0
 requires query.Length > 0
 {
   var i, j := 0, 0;
-  found := "";
 
   while (i < word.Length && j < query.Length) 
   invariant i <= word.Length
@@ -26,13 +25,14 @@ requires query.Length > 0
   // decreases if inRange(i, word.Length, j, query.Length) && word[i] == query[j] then query.Length - j else if inRange(i, word.Length, j, query.Length) &&  word[i] != query[j] && j > 0 then i - word.Length else word.Length - i
   {
     if word[i] as char == query[j] {
-      if j == 0 {found := "YES";  pos := i;    }
+      if j == 0 {found := true;  pos := i;    }
       j := j + 1;
     } else if j > 0 {
       var p_j := j;
-      j := 0;
+      j, found, pos := 0, false, -1;
+    
       if p_j > 0 && word[i] as char == query[j] {
-        found := "YES"; //+ i as char;
+        found := true; //+ i as char;
         pos := i;
         j := j + 1;
       }
@@ -40,10 +40,6 @@ requires query.Length > 0
     } 
     
     i := i + 1;
-  }
-  if found == "" {
-    found := "NO";
-    pos := 0;
   }
 }
 
@@ -121,11 +117,11 @@ method {:main} Main(ghost env:HostEnvironment?)
     
     var found, pos:= Grep(buffer, query);
     
-    if found == "YES"{
-     print found,", ", pos;
+    if found {
+     print "YES",", ", pos;
     }
     else {
-      print found;
+      print "NO";
     }
 
 }
