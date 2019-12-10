@@ -105,13 +105,18 @@ requires word.Length >= query.Length
   {
     var low, high := indexes[i], indexes[i] + query.Length;
     rst := rst + "<-" + wordSeq[low..high] + "->";
+
+    low := high;
     if i < |indexes| - 1 {
-      low, high := high, indexes[i + 1];
-      // substituir isto pelo sorted
-      if low < high {
-        rst := rst + wordSeq[low..high];//"...";
-      }
+      high := indexes[i + 1];
+    } else {
+      high := |wordSeq|;
     }
+      // substituir isto pelo sorted
+    if low < high {
+      rst := rst + wordSeq[low..high];//"...";
+    }
+    
     i := i + 1;
   }
 
