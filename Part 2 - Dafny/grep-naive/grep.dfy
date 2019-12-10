@@ -11,35 +11,51 @@ predicate inRange(i: int, len: int, j: int, len2: int) {
   0 <= i < len && 0 <= j < len2
 }
 
-method Grep(word: array<byte>, query: array<char>) returns (found: bool, pos: int)
+method Grep(word: array<byte>, query: array<char>) returns (found: bool, indexes: seq<int>)
 requires word.Length > 0
 requires query.Length > 0
 {
-  var i, j := 0, 0;
+  var i, j, pos := 0, 0, 0;
+  indexes := [];
 
-  while (i < word.Length && j < query.Length) 
+  while (i < word.Length) 
   invariant i <= word.Length
-  invariant j <= query.Length
+  invariant j < query.Length
   invariant j <= i
   // j > 0 && j < query.Length && i >= 0 && i < word.Length && w
   // decreases if inRange(i, word.Length, j, query.Length) && word[i] == query[j] then query.Length - j else if inRange(i, word.Length, j, query.Length) &&  word[i] != query[j] && j > 0 then i - word.Length else word.Length - i
   {
+    var increment_j := false;
     if word[i] as char == query[j] {
-      if j == 0 {found := true;  pos := i;    }
-      j := j + 1;
+      if j == 0 {
+        found := true;  
+        pos := i;    
+      }
+      increment_j := true;
     } else if j > 0 {
       var p_j := j;
       j, found, pos := 0, false, -1;
     
       if p_j > 0 && word[i] as char == query[j] {
-        found := true; //+ i as char;
+        found := true;
         pos := i;
-        j := j + 1;
+        increment_j := true;
       }
       //i := i - 1;
     } 
-    
+    if j == query.Length - 1 {
+      if found {
+        indexes := indexes + [pos];
+        pos, j, found := 0, 0, false;
+      }
+    } else if increment_j{
+      j := j + 1;
+    }
     i := i + 1;
+  }
+  
+  if !found && |indexes| > 0 {
+    found := true;
   }
 }
 
