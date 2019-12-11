@@ -11,10 +11,11 @@ predicate inRange(i: int, len: int, j: int, len2: int) {
   0 <= i < len && 0 <= j < len2
 }
 
-predicate sorted(s: seq<nat>, diff: nat)
+predicate sorted(s: seq<nat>)
 {
   forall i,j :: 0 <= i < j < |s| ==> s[i] <= s[j]
 }
+
 
 method Grep(word: array<char>, query: array<char>) returns (found: bool, indexes: seq<nat>)
 requires word.Length > 0
@@ -34,7 +35,8 @@ ensures forall k :: 0 <= k < |indexes| ==> indexes[k] + query.Length <= word.Len
   invariant 0 <= pos <= i - j
   invariant forall k :: 0 <= k < |indexes| ==> indexes[k] < word.Length
   invariant forall k :: 0 <= k < |indexes| ==> indexes[k] <= word.Length - query.Length
-  //invariant sorted(indexes, j)
+  //invariant sorted(indexes)
+
   decreases word.Length - i
   // j > 0 && j < query.Length && i >= 0 && i < word.Length && w
   // decreases if inRange(i, word.Length, j, query.Length) && word[i] == query[j] then query.Length - j else if inRange(i, word.Length, j, query.Length) &&  word[i] != query[j] && j > 0 then i - word.Length else word.Length - i
@@ -42,18 +44,14 @@ ensures forall k :: 0 <= k < |indexes| ==> indexes[k] + query.Length <= word.Len
     var increment_j := false;
     if word[i] == query[j] {
       if j == 0 {
-        found := true;  
-        pos := i;    
+        found, pos := true, i;  
       }
       increment_j := true;
     } else if j > 0 {
-      var p_j := j;
-      j, found, pos := 0, false, 0;
+      pos, j, found := 0, 0, false;
       
-      if p_j > 0 && word[i] == query[j] {
-        found := true;
-        pos := i;
-        increment_j := true;
+      if word[i] == query[j] {
+        found, increment_j, pos := true, true, i;
       }
       //i := i - 1;
     } 
@@ -68,10 +66,11 @@ ensures forall k :: 0 <= k < |indexes| ==> indexes[k] + query.Length <= word.Len
     }
     i := i + 1;
   }
-  
+
   if !found && |indexes| > 0 {
     return true, indexes;
   }
+ 
 }
 
 method CastArray(a: array<byte>) returns (chars: array<char>)
@@ -128,18 +127,18 @@ method {:main} Main(ghost env:HostEnvironment?)
     modifies env.ok
   modifies env.files
 {
-  var ncmd := HostConstants.NumCommandLineArgs(env);
+   var ncmd := HostConstants.NumCommandLineArgs(env);
 
     if ncmd != 3 {
       if ncmd >= 1 {
         print ncmd - 1; print " files supplied.\n";
       }
-      print "Command requires src file and dst file... Example: ./reverse.exe Source Dest\n";
+      print "Command requires stringQuery and file... Example: ./grep.exe Query File";
       return;
     }
 
-    var srcFile := HostConstants.GetCommandLineArg(1, env);
-    var query := HostConstants.GetCommandLineArg(2, env);
+    var query := HostConstants.GetCommandLineArg(1, env);
+    var srcFile := HostConstants.GetCommandLineArg(2, env);
 
     var ok;
 
