@@ -128,18 +128,18 @@ method {:main} Main(ghost env:HostEnvironment?)
     modifies env.ok
   modifies env.files
 {
-  var ncmd := HostConstants.NumCommandLineArgs(env);
+   var ncmd := HostConstants.NumCommandLineArgs(env);
 
     if ncmd != 3 {
       if ncmd >= 1 {
         print ncmd - 1; print " files supplied.\n";
       }
-      print "Command requires src file and dst file... Example: ./reverse.exe Source Dest\n";
+      print "Command requires stringQuery and file... Example: ./grep.exe Query File";
       return;
     }
 
-    var srcFile := HostConstants.GetCommandLineArg(1, env);
-    var query := HostConstants.GetCommandLineArg(2, env);
+    var query := HostConstants.GetCommandLineArg(1, env);
+    var srcFile := HostConstants.GetCommandLineArg(2, env);
 
     var ok;
 
