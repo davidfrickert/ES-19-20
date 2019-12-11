@@ -83,31 +83,6 @@ ensures table.Length == pattern.Length + 1
 
 }
 
-// como provar que o loop termina?
-method {:verify false} LPSArray(pattern: array<char>, M: nat) returns (lps: array<nat>)
-requires pattern.Length > 0
-requires M == pattern.Length
-{
-  lps := new nat[M];
-  // length of the previous longest prefix suffix
-  var len: nat, i := 0, 1;
-  while i < M 
-  invariant len <= i
-  decreases M - i
-  {
-    if pattern[i] == pattern[len] {
-      len := len + 1;
-      lps[i] := len;
-      i := i + 1;
-    } else if len > 0 {
-        len := lps[len - 1];
-        print i, "/";
-    } else {
-      lps[i] := 0;
-      i := i + 1;
-    }
-  }
-} 
 method {:main} Main(ghost env:HostEnvironment?)
   requires env != null && env.Valid() && env.ok.ok();
    modifies env.ok
