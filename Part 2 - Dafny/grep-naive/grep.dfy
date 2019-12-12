@@ -16,14 +16,33 @@ predicate sorted(s: seq<nat>)
   forall i,j :: 0 <= i < j < |s| ==> s[i] <= s[j]
 }
 
+predicate IndexIsMatch(word: array<char>, query:array<char>, index: nat) 
+reads word, query
+requires index <= word.Length - query.Length
+{
+  forall k :: index <= k < index + query.Length ==> word[k] == query[k - index]
+}
+
+method InsertInSeq(indexes: seq<nat>, index: nat, word: array<char>, query: array<char>) returns (i: seq<nat>)
+requires index <= word.Length - query.Length
+requires word.Length >= query.Length
+requires forall k :: 0 <= k < |indexes| ==> indexes[k] <= word.Length - query.Length
+requires forall k :: 0 <= k < |indexes| ==> IndexIsMatch(word, query, indexes[k])
+requires IndexIsMatch(word, query, index)
+ensures |i| == |indexes| + 1
+ensures forall k :: 0 <= k < |i| ==> i[k] <= word.Length - query.Length
+ensures forall k :: 0 <= k < |i| ==> IndexIsMatch(word, query, i[k])
+{
+  i := indexes + [index];
+}
 
 method Grep(word: array<char>, query: array<char>) returns (found: bool, indexes: seq<nat>)
 requires word.Length > 0
 requires query.Length > 0
 requires word.Length >= query.Length
-//ensures forall v :: 0 <= v < |indexes| ==> indexes[v] < word.Length
 ensures forall k :: 0 <= k < |indexes| ==> indexes[k] < word.Length
 ensures forall k :: 0 <= k < |indexes| ==> indexes[k] + query.Length <= word.Length
+ensures forall k :: 0 <= k < |indexes| ==> IndexIsMatch(word, query, indexes[k])
 {
   var i, j, pos: nat := 0, 0, 0;
   indexes := [];
@@ -35,7 +54,7 @@ ensures forall k :: 0 <= k < |indexes| ==> indexes[k] + query.Length <= word.Len
   invariant 0 <= pos <= i - j
   invariant forall k :: 0 <= k < |indexes| ==> indexes[k] < word.Length
   invariant forall k :: 0 <= k < |indexes| ==> indexes[k] <= word.Length - query.Length
-  //invariant sorted(indexes)
+  invariant forall k :: 0 <= k < |indexes| ==> IndexIsMatch(word, query, indexes[k])
 
   decreases word.Length - i
   // j > 0 && j < query.Length && i >= 0 && i < word.Length && w
@@ -53,12 +72,16 @@ ensures forall k :: 0 <= k < |indexes| ==> indexes[k] + query.Length <= word.Len
       if word[i] == query[j] {
         found, increment_j, pos := true, true, i;
       }
-      //i := i - 1;
     } 
     
     if j == query.Length - 1 {
       if found {
-        indexes := indexes + [pos];
+        if pos == i - j {
+          assert pos == i - j && j == query.Length - 1;
+          assert forall k :: pos <= k < pos + query.Length ==> word[k] == query[k-j];
+          //indexes := indexes + [pos];
+          indexes := InsertInSeq(indexes, pos, word, query);
+        }
         pos, j, found := 0, 0, false;
       }
     } else if increment_j{
