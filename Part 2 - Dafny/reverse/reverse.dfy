@@ -6,6 +6,7 @@
 include "Io.dfy"
 
 method ArrayFromSeq<T>(s: seq<T>) returns (a: array<T>)
+  ensures |s| == a.Length
   ensures a[0.. a.Length] == s
 {
   a := new T[|s|] ( i requires 0 <= i < |s| => s[i] );
@@ -37,7 +38,7 @@ function countF(items: seq<byte>, item: byte): nat
 
 method splitArrayBy(arr: array<byte>, item: byte) returns (a: array<array<byte>>)
 requires arr.Length > 0
-ensures fresh(a) && a.Length > 0
+ensures fresh(a) && a.Length > 0 && a.Length == countF(arr[0..arr.Length], item) + 1
 {
   var from := 0;
   var to := 0;
@@ -55,8 +56,10 @@ ensures fresh(a) && a.Length > 0
   decreases arr.Length - to
   decreases arr.Length - from
   invariant l_cnt <= lines && to + 1 > from
+  invariant to <= arr.Length && from <= arr.Length
+  invariant a.Length == countF(arr[0..arr.Length], item) + 1
   {
-    if (arr[to] == item) {
+    if (arr[to] == item){
       a[l_cnt] := ArrayFromSeq(arr[from..to + 1]);
       l_cnt := l_cnt + 1;
       from := to + 1;
@@ -72,54 +75,74 @@ ensures fresh(a) && a.Length > 0
   }
 }
 
-method Flatten(a: array<array<byte>>) returns (f: array<byte>) 
-
+method Flatten(a: array<array<byte>>) returns (all_bytes: seq<byte>)
+requires a.Length > 0
+//requires forall i :: 0 <=i<a.Length ==> a[i].Length>0 && a.Length>0 
+//ensures forall i, k:: 0 <=i<a.Length && 0 <= k < a[i].Length ==> a[i][k] in all_bytes[0..|all_bytes|]
+ensures LengthSum(a[..a.Length]) == |all_bytes|
 {
-  var all_bytes := [];
+  var sum: int :=0;
+  all_bytes := [];
   var line := 0;
-
+  
   while ( line < a.Length) 
     decreases a.Length - line
+    invariant 0 <= line <= a.Length
+    invariant sum == LengthSum(a[..line])
+    invariant |all_bytes| == sum
   {
     var inside := a[line];
-    all_bytes := all_bytes + inside[0..inside.Length];
+    all_bytes := all_bytes + inside[..];
+    lemmasum(a, sum);
     line := line + 1;
+    sum := LengthSum(a[..line]);
   }
-
-  f := ArrayFromSeq(all_bytes);
-
 }
 
-method reverse(line: array<array<byte>>) returns (r: array<array<byte>>) 
-  modifies line
-  requires line.Length >= 0
-  ensures line.Length == r.Length 
+lemma lemmasum(a:array<array<byte>>, n:int)
+  ensures forall i:: 0 <= i < a.Length && n == LengthSum(a[..i]) ==> (n + a[i].Length) == LengthSum(a[..i+1])
+
+
+function method LengthSum(v:seq<array<byte>>): int
+decreases v
 {
-  var i := 0;
-  var l := line.Length;
-  r := line;
-
-  
-    while i < (l/2)
-      decreases (l/2) - i
-    {
-      var tmp := r[i];
-      r[i] := r[l-1-i];
-      r[l-1-i] := tmp;
-      i:= i + 1;
-    }
-  
-  //Basic version
-  //r := new array[line.Length];
-  
-  /* while i < l
-    decreases l-i
-    invariant i >= 0 && i <= line.Length && (line.Length -i) <= line.Length && (i >= l ==> line.Length == r.Length)  //&& r.Length == i 
-  {
-    r[i] := line[l-1-i];
-    i := i + 1;
-  } */
+  if |v| == 0 then 0
+  else if |v| == 1 then v[0].Length
+  else v[0].Length + LengthSum(v[1..])
 }
+   
+
+
+predicate reversed (arr : array<array<byte>>, outarr: array<array<byte>>)
+requires arr.Length > 0 && outarr.Length > 0
+requires arr.Length == outarr.Length
+reads arr, outarr
+{
+  forall k :: 0<=k<=arr.Length-1 ==> outarr[k] == arr[(arr.Length-1-k)]
+}
+
+method reverse(line: array<array<byte>>) returns (r: array<array<byte>>)
+  modifies line;
+  requires line.Length > 0;
+ // requires forall i :: 0 <=i<line.Length ==> line[i].Length>0;
+  ensures line.Length == r.Length && reversed(line, r);
+{
+  r := new array[line.Length];
+  r := line;
+  var i := 0;
+  var l : int := line.Length - 1;
+  //TODO fzr reverse em cada linha, fica melhor
+   while i <= l
+    invariant  0 <= i <= line.Length
+    invariant r.Length == line.Length
+    invariant forall k :: (0 <= k < i || l-i < k <= l) ==> (line[k] == r[l-k]) 
+    decreases l-i
+  {
+    r[i] := line[line.Length-1-i];
+    i := i + 1;
+  } 
+}
+
 
 method {:main} Main(ghost env: HostEnvironment?)
   requires env != null && env.Valid() && env.ok.ok();
@@ -189,9 +212,10 @@ method {:main} Main(ghost env: HostEnvironment?)
     
     var split := splitArrayBy(buffer, 10);
     
-    var res := reverse(split);
+    var reverse := reverse(split);
   
-    var flat := Flatten(res);
+    var f := Flatten(reverse);
+    var flat := ArrayFromSeq(f);
     var t := 0;
     var ofs; ok, ofs := FileStream.Open(dstFile, env);
     if !ok {

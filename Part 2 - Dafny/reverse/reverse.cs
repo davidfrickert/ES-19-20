@@ -12,6 +12,7 @@ using System.Numerics;
 // reverse.dfy
 
 method ArrayFromSeq<T>(s: seq<T>) returns (a: array<T>)
+  ensures |s| == a.Length
   ensures a[0 .. a.Length] == s
   decreases s
 {
@@ -44,7 +45,7 @@ function countF(items: seq<byte>, item: byte): nat
 
 method splitArrayBy(arr: array<byte>, item: byte) returns (a: array<array<byte>>)
   requires arr.Length > 0
-  ensures fresh(a) && a.Length > 0
+  ensures fresh(a) && a.Length > 0 && a.Length == countF(arr[0 .. arr.Length], item) + 1
   decreases arr, item
 {
   var from := 0;
@@ -58,6 +59,8 @@ method splitArrayBy(arr: array<byte>, item: byte) returns (a: array<array<byte>>
   a := new array<byte>[lines];
   while to < arr.Length && from < arr.Length && l_cnt < lines
     invariant l_cnt <= lines && to + 1 > from
+    invariant to <= arr.Length && from <= arr.Length
+    invariant a.Length == countF(arr[0 .. arr.Length], item) + 1
     decreases arr.Length - to, arr.Length - from
   {
     if arr[to] == item {
@@ -76,36 +79,71 @@ method splitArrayBy(arr: array<byte>, item: byte) returns (a: array<array<byte>>
   }
 }
 
-method Flatten(a: array<array<byte>>) returns (f: array<byte>)
+method Flatten(a: array<array<byte>>) returns (all_bytes: seq<byte>)
+  requires a.Length > 0
+  ensures LengthSum(a[..a.Length]) == |all_bytes|
   decreases a
 {
-  var all_bytes := [];
+  var sum: int := 0;
+  all_bytes := [];
   var line := 0;
   while line < a.Length
+    invariant 0 <= line <= a.Length
+    invariant sum == LengthSum(a[..line])
+    invariant |all_bytes| == sum
     decreases a.Length - line
   {
     var inside := a[line];
-    all_bytes := all_bytes + inside[0 .. inside.Length];
+    all_bytes := all_bytes + inside[..];
+    lemmasum(a, sum);
     line := line + 1;
+    sum := LengthSum(a[..line]);
   }
-  f := ArrayFromSeq(all_bytes);
+}
+
+lemma lemmasum(a: array<array<byte>>, n: int)
+  ensures forall i: int :: 0 <= i < a.Length && n == LengthSum(a[..i]) ==> n + a[i].Length == LengthSum(a[..i + 1])
+  decreases a, n
+
+function method LengthSum(v: seq<array<byte>>): int
+  decreases v
+{
+  if |v| == 0 then
+    0
+  else if |v| == 1 then
+    v[0].Length
+  else
+    v[0].Length + LengthSum(v[1..])
+}
+
+predicate reversed(arr: array<array<byte>>, outarr: array<array<byte>>)
+  requires arr.Length > 0 && outarr.Length > 0
+  requires arr.Length == outarr.Length
+  reads arr, outarr
+  decreases {arr, outarr}, arr, outarr
+{
+  forall k: int :: 
+    0 <= k <= arr.Length - 1 ==>
+      outarr[k] == arr[arr.Length - 1 - k]
 }
 
 method reverse(line: array<array<byte>>) returns (r: array<array<byte>>)
-  requires line.Length >= 0
+  requires line.Length > 0
   modifies line
-  ensures line.Length == r.Length
+  ensures line.Length == r.Length && reversed(line, r)
   decreases line
 {
-  var i := 0;
-  var l := line.Length;
+  r := new array<byte>[line.Length];
   r := line;
-  while i < l / 2
-    decreases l / 2 - i
+  var i := 0;
+  var l: int := line.Length - 1;
+  while i <= l
+    invariant 0 <= i <= line.Length
+    invariant r.Length == line.Length
+    invariant forall k: int :: 0 <= k < i || l - i < k <= l ==> line[k] == r[l - k]
+    decreases l - i
   {
-    var tmp := r[i];
-    r[i] := r[l - 1 - i];
-    r[l - 1 - i] := tmp;
+    r[i] := line[line.Length - 1 - i];
     i := i + 1;
   }
 }
@@ -170,8 +208,9 @@ method {:main} Main(ghost env: HostEnvironment?)
     return;
   }
   var split := splitArrayBy(buffer, 10);
-  var res := reverse(split);
-  var flat := Flatten(res);
+  var reverse := reverse(split);
+  var f := Flatten(reverse);
+  var flat := ArrayFromSeq(f);
   var t := 0;
   var ofs;
   ok, ofs := FileStream.Open(dstFile, env);
@@ -1850,8 +1889,8 @@ namespace _module {
     TAIL_CALL_START: ;
       a = new T[0];
       var _nw0 = new T[(int)(new BigInteger((s).Count))];
-      var _arrayinit0 = Dafny.Helpers.Id<Func<Dafny.Sequence<T>,Func<BigInteger,T>>>((_132_s) => ((System.Func<BigInteger, T>)((_133_i) => {
-        return (_132_s).Select(_133_i);
+      var _arrayinit0 = Dafny.Helpers.Id<Func<Dafny.Sequence<T>,Func<BigInteger,T>>>((_161_s) => ((System.Func<BigInteger, T>)((_162_i) => {
+        return (_161_s).Select(_162_i);
       })))(s);
       for (var _arrayinit_00 = 0; _arrayinit_00 < _nw0.Length; _arrayinit_00++) {
         _nw0[(int)(_arrayinit_00)] = _arrayinit0(_arrayinit_00);
@@ -1862,35 +1901,35 @@ namespace _module {
     {
     TAIL_CALL_START: ;
       count = BigInteger.Zero;
-      BigInteger _134_i;
-      _134_i = new BigInteger(0);
+      BigInteger _163_i;
+      _163_i = new BigInteger(0);
       count = new BigInteger(0);
-      while ((_134_i) < (new BigInteger((arr).Length))) {
-        if (((arr)[(int)(_134_i)]) == (item)) {
+      while ((_163_i) < (new BigInteger((arr).Length))) {
+        if (((arr)[(int)(_163_i)]) == (item)) {
           count = (count) + (new BigInteger(1));
         }
-        _134_i = (_134_i) + (new BigInteger(1));
+        _163_i = (_163_i) + (new BigInteger(1));
       }
     }
     public static void splitArrayBy(byte[] arr, byte item, out byte[][] a)
     {
     TAIL_CALL_START: ;
       a = new byte[0][];
-      BigInteger _135_from;
-      _135_from = new BigInteger(0);
-      BigInteger _136_to;
-      _136_to = new BigInteger(0);
-      BigInteger _137_l__cnt;
-      _137_l__cnt = new BigInteger(0);
-      BigInteger _138_lines;
+      BigInteger _164_from;
+      _164_from = new BigInteger(0);
+      BigInteger _165_to;
+      _165_to = new BigInteger(0);
+      BigInteger _166_l__cnt;
+      _166_l__cnt = new BigInteger(0);
+      BigInteger _167_lines;
       BigInteger _out0;
       __default.countItem(arr, item, out _out0);
-      _138_lines = _out0;
-      _138_lines = (_138_lines) + (new BigInteger(1));
-      if ((_138_lines) == (new BigInteger(0))) {
+      _167_lines = _out0;
+      _167_lines = (_167_lines) + (new BigInteger(1));
+      if ((_167_lines) == (new BigInteger(0))) {
         var _nw1 = new byte[(int)(new BigInteger(1))][];
-        var _arrayinit1 = Dafny.Helpers.Id<Func<byte[],Func<BigInteger,byte[]>>>((_139_arr) => ((System.Func<BigInteger, byte[]>)((_140___v0) => {
-          return _139_arr;
+        var _arrayinit1 = Dafny.Helpers.Id<Func<byte[],Func<BigInteger,byte[]>>>((_168_arr) => ((System.Func<BigInteger, byte[]>)((_169___v0) => {
+          return _168_arr;
         })))(arr);
         for (var _arrayinit_01 = 0; _arrayinit_01 < _nw1.Length; _arrayinit_01++) {
           _nw1[(int)(_arrayinit_01)] = _arrayinit1(_arrayinit_01);
@@ -1898,203 +1937,217 @@ namespace _module {
         a = _nw1;
         return;
       }
-      var _nw2 = Dafny.ArrayHelpers.InitNewArray1<byte[]>(new byte[0], (_138_lines));
+      var _nw2 = Dafny.ArrayHelpers.InitNewArray1<byte[]>(new byte[0], (_167_lines));
       a = _nw2;
-      while ((((_136_to) < (new BigInteger((arr).Length))) && ((_135_from) < (new BigInteger((arr).Length)))) && ((_137_l__cnt) < (_138_lines))) {
-        if (((arr)[(int)(_136_to)]) == (item)) {
+      while ((((_165_to) < (new BigInteger((arr).Length))) && ((_164_from) < (new BigInteger((arr).Length)))) && ((_166_l__cnt) < (_167_lines))) {
+        if (((arr)[(int)(_165_to)]) == (item)) {
           byte[] _out1;
-          __default.ArrayFromSeq<byte>(Dafny.Helpers.SeqFromArray(arr).Take((_136_to) + (new BigInteger(1))).Drop(_135_from), out _out1);
-          (a)[(int)((_137_l__cnt))] = _out1;
-          _137_l__cnt = (_137_l__cnt) + (new BigInteger(1));
-          _135_from = (_136_to) + (new BigInteger(1));
+          __default.ArrayFromSeq<byte>(Dafny.Helpers.SeqFromArray(arr).Take((_165_to) + (new BigInteger(1))).Drop(_164_from), out _out1);
+          (a)[(int)((_166_l__cnt))] = _out1;
+          _166_l__cnt = (_166_l__cnt) + (new BigInteger(1));
+          _164_from = (_165_to) + (new BigInteger(1));
         }
-        if (((_137_l__cnt) == ((_138_lines) - (new BigInteger(1)))) && ((_136_to) == ((new BigInteger((arr).Length)) - (new BigInteger(1))))) {
-          Dafny.Sequence<byte> _141_tmp;
-          _141_tmp = Dafny.Sequence<byte>.FromElements();
-          Dafny.Sequence<byte> _142_n;
-          _142_n = Dafny.Sequence<byte>.FromElements((byte)(10));
-          _141_tmp = (Dafny.Helpers.SeqFromArray(arr).Drop(_135_from)).Concat(_142_n);
+        if (((_166_l__cnt) == ((_167_lines) - (new BigInteger(1)))) && ((_165_to) == ((new BigInteger((arr).Length)) - (new BigInteger(1))))) {
+          Dafny.Sequence<byte> _170_tmp;
+          _170_tmp = Dafny.Sequence<byte>.FromElements();
+          Dafny.Sequence<byte> _171_n;
+          _171_n = Dafny.Sequence<byte>.FromElements((byte)(10));
+          _170_tmp = (Dafny.Helpers.SeqFromArray(arr).Drop(_164_from)).Concat(_171_n);
           byte[] _out2;
-          __default.ArrayFromSeq<byte>(_141_tmp, out _out2);
-          (a)[(int)((_137_l__cnt))] = _out2;
-          _137_l__cnt = (_137_l__cnt) + (new BigInteger(1));
+          __default.ArrayFromSeq<byte>(_170_tmp, out _out2);
+          (a)[(int)((_166_l__cnt))] = _out2;
+          _166_l__cnt = (_166_l__cnt) + (new BigInteger(1));
         }
-        _136_to = (_136_to) + (new BigInteger(1));
+        _165_to = (_165_to) + (new BigInteger(1));
       }
     }
-    public static void Flatten(byte[][] a, out byte[] f)
+    public static void Flatten(byte[][] a, out Dafny.Sequence<byte> all__bytes)
     {
     TAIL_CALL_START: ;
-      f = new byte[0];
-      Dafny.Sequence<byte> _143_all__bytes;
-      _143_all__bytes = Dafny.Sequence<byte>.FromElements();
-      BigInteger _144_line;
-      _144_line = new BigInteger(0);
-      while ((_144_line) < (new BigInteger((a).Length))) {
-        byte[] _145_inside;
-        _145_inside = (a)[(int)(_144_line)];
-        _143_all__bytes = (_143_all__bytes).Concat(Dafny.Helpers.SeqFromArray(_145_inside).Take(new BigInteger((_145_inside).Length)).Drop(new BigInteger(0)));
-        _144_line = (_144_line) + (new BigInteger(1));
+      all__bytes = Dafny.Sequence<byte>.Empty;
+      BigInteger _172_sum;
+      _172_sum = new BigInteger(0);
+      all__bytes = Dafny.Sequence<byte>.FromElements();
+      BigInteger _173_line;
+      _173_line = new BigInteger(0);
+      while ((_173_line) < (new BigInteger((a).Length))) {
+        byte[] _174_inside;
+        _174_inside = (a)[(int)(_173_line)];
+        all__bytes = (all__bytes).Concat(Dafny.Helpers.SeqFromArray(_174_inside));
+        { }
+        _173_line = (_173_line) + (new BigInteger(1));
+        _172_sum = __default.LengthSum(Dafny.Helpers.SeqFromArray(a).Take(_173_line));
       }
-      byte[] _out3;
-      __default.ArrayFromSeq<byte>(_143_all__bytes, out _out3);
-      f = _out3;
+    }
+/* Compilation error: Method _module._default.lemmasum has no body */
+    public static BigInteger LengthSum(Dafny.Sequence<byte[]> v) {
+      if ((new BigInteger((v).Count)) == (new BigInteger(0))) {
+        return new BigInteger(0);
+      } else  {
+        if ((new BigInteger((v).Count)) == (new BigInteger(1))) {
+          return new BigInteger(((v).Select(new BigInteger(0))).Length);
+        } else  {
+          return (new BigInteger(((v).Select(new BigInteger(0))).Length)) + (__default.LengthSum((v).Drop(new BigInteger(1))));
+        }
+      }
     }
     public static void reverse(byte[][] line, out byte[][] r)
     {
     TAIL_CALL_START: ;
       r = new byte[0][];
-      BigInteger _146_i;
-      _146_i = new BigInteger(0);
-      BigInteger _147_l;
-      _147_l = new BigInteger((line).Length);
+      var _nw3 = Dafny.ArrayHelpers.InitNewArray1<byte[]>(new byte[0], (new BigInteger((line).Length)));
+      r = _nw3;
       r = line;
-      while ((_146_i) < (Dafny.Helpers.EuclideanDivision(_147_l, new BigInteger(2)))) {
-        byte[] _148_tmp;
-        _148_tmp = (r)[(int)(_146_i)];
-        (r)[(int)((_146_i))] = (r)[(int)(((_147_l) - (new BigInteger(1))) - (_146_i))];
-        var _index0 = ((_147_l) - (new BigInteger(1))) - (_146_i);
-        (r)[(int)(_index0)] = _148_tmp;
-        _146_i = (_146_i) + (new BigInteger(1));
+      BigInteger _175_i;
+      _175_i = new BigInteger(0);
+      BigInteger _176_l;
+      _176_l = (new BigInteger((line).Length)) - (new BigInteger(1));
+      while ((_175_i) <= (_176_l)) {
+        (r)[(int)((_175_i))] = (line)[(int)(((new BigInteger((line).Length)) - (new BigInteger(1))) - (_175_i))];
+        _175_i = (_175_i) + (new BigInteger(1));
       }
     }
     public static void Main()
     {
     TAIL_CALL_START: ;
-      uint _149_ncmd;
-      uint _out4;
-      HostConstants.NumCommandLineArgs(out _out4);
-      _149_ncmd = _out4;
-      if ((_149_ncmd) != (3U)) {
-        if ((_149_ncmd) >= (1U)) {
-          Dafny.Helpers.Print((_149_ncmd) - (1U));
+      uint _177_ncmd;
+      uint _out3;
+      HostConstants.NumCommandLineArgs(out _out3);
+      _177_ncmd = _out3;
+      if ((_177_ncmd) != (3U)) {
+        if ((_177_ncmd) >= (1U)) {
+          Dafny.Helpers.Print((_177_ncmd) - (1U));
           Dafny.Helpers.Print(Dafny.Sequence<char>.FromString(" files supplied.\n"));
         }
         Dafny.Helpers.Print(Dafny.Sequence<char>.FromString("Command requires src file and dst file... Example: ./reverse.exe Source Dest\n"));
         return;
       }
-      char[] _150_srcFile;
+      char[] _178_srcFile;
+      char[] _out4;
+      HostConstants.GetCommandLineArg(1UL, out _out4);
+      _178_srcFile = _out4;
+      char[] _179_dstFile;
       char[] _out5;
-      HostConstants.GetCommandLineArg(1UL, out _out5);
-      _150_srcFile = _out5;
-      char[] _151_dstFile;
-      char[] _out6;
-      HostConstants.GetCommandLineArg(2UL, out _out6);
-      _151_dstFile = _out6;
-      bool _152_ok = false;
-      bool _out7;
-      FileStream.FileExists(_150_srcFile, out _out7);
-      _152_ok = _out7;
-      if (!(_152_ok)) {
+      HostConstants.GetCommandLineArg(2UL, out _out5);
+      _179_dstFile = _out5;
+      bool _180_ok = false;
+      bool _out6;
+      FileStream.FileExists(_178_srcFile, out _out6);
+      _180_ok = _out6;
+      if (!(_180_ok)) {
         Dafny.Helpers.Print(Dafny.Sequence<char>.FromString("In file '"));
-        Dafny.Helpers.Print(_150_srcFile);
+        Dafny.Helpers.Print(_178_srcFile);
         Dafny.Helpers.Print(Dafny.Sequence<char>.FromString("'doesn't exist"));
         return;
       }
-      int _153_len = 0;
-      bool _out8;
-      int _out9;
-      FileStream.FileLength(_150_srcFile, out _out8, out _out9);
-      _152_ok = _out8;
-      _153_len = _out9;
-      if (!(_152_ok)) {
+      int _181_len = 0;
+      bool _out7;
+      int _out8;
+      FileStream.FileLength(_178_srcFile, out _out7, out _out8);
+      _180_ok = _out7;
+      _181_len = _out8;
+      if (!(_180_ok)) {
         Dafny.Helpers.Print(Dafny.Sequence<char>.FromString("Couldn't stat file '"));
-        Dafny.Helpers.Print(_150_srcFile);
+        Dafny.Helpers.Print(_178_srcFile);
         Dafny.Helpers.Print(Dafny.Sequence<char>.FromString("' length"));
         return;
       }
-      FileStream _154_fs = default(FileStream);
-      bool _out10;
-      FileStream _out11;
-      FileStream.Open(_150_srcFile, out _out10, out _out11);
-      _152_ok = _out10;
-      _154_fs = _out11;
-      if (!(_152_ok)) {
+      FileStream _182_fs = default(FileStream);
+      bool _out9;
+      FileStream _out10;
+      FileStream.Open(_178_srcFile, out _out9, out _out10);
+      _180_ok = _out9;
+      _182_fs = _out10;
+      if (!(_180_ok)) {
         Dafny.Helpers.Print(Dafny.Sequence<char>.FromString("Problems opening file "));
-        Dafny.Helpers.Print(_150_srcFile);
+        Dafny.Helpers.Print(_178_srcFile);
         Dafny.Helpers.Print(Dafny.Sequence<char>.FromString("\n"));
         return;
       }
-      byte[] _155_buffer;
-      var _nw3 = new byte[(int)(_153_len)];
-      _155_buffer = _nw3;
-      bool _out12;
-      (_154_fs).Read(0, _155_buffer, 0, _153_len, out _out12);
-      _152_ok = _out12;
-      if (!(_152_ok)) {
+      byte[] _183_buffer;
+      var _nw4 = new byte[(int)(_181_len)];
+      _183_buffer = _nw4;
+      bool _out11;
+      (_182_fs).Read(0, _183_buffer, 0, _181_len, out _out11);
+      _180_ok = _out11;
+      if (!(_180_ok)) {
         Dafny.Helpers.Print(Dafny.Sequence<char>.FromString("Problems reading in file'"));
-        Dafny.Helpers.Print(_150_srcFile);
+        Dafny.Helpers.Print(_178_srcFile);
         Dafny.Helpers.Print(Dafny.Sequence<char>.FromString("'\n"));
         return;
       }
-      BigInteger _156_i;
-      _156_i = new BigInteger((_155_buffer).Length);
-      bool _out13;
-      (_154_fs).Close(out _out13);
-      _152_ok = _out13;
-      if (!(_152_ok)) {
+      BigInteger _184_i;
+      _184_i = new BigInteger((_183_buffer).Length);
+      bool _out12;
+      (_182_fs).Close(out _out12);
+      _180_ok = _out12;
+      if (!(_180_ok)) {
         Dafny.Helpers.Print(Dafny.Sequence<char>.FromString("Problems closing in file '"));
-        Dafny.Helpers.Print(_150_srcFile);
+        Dafny.Helpers.Print(_178_srcFile);
         Dafny.Helpers.Print(Dafny.Sequence<char>.FromString("'\n"));
         return;
       }
-      if ((new BigInteger((_155_buffer).Length)) == (new BigInteger(0))) {
+      if ((new BigInteger((_183_buffer).Length)) == (new BigInteger(0))) {
         return;
       }
-      byte[][] _157_split;
+      byte[][] _185_split;
+      byte[][] _out13;
+      __default.splitArrayBy(_183_buffer, 10, out _out13);
+      _185_split = _out13;
+      byte[][] _186_reverse;
       byte[][] _out14;
-      __default.splitArrayBy(_155_buffer, 10, out _out14);
-      _157_split = _out14;
-      byte[][] _158_res;
-      byte[][] _out15;
-      __default.reverse(_157_split, out _out15);
-      _158_res = _out15;
-      byte[] _159_flat;
+      __default.reverse(_185_split, out _out14);
+      _186_reverse = _out14;
+      Dafny.Sequence<byte> _187_f;
+      Dafny.Sequence<byte> _out15;
+      __default.Flatten(_186_reverse, out _out15);
+      _187_f = _out15;
+      byte[] _188_flat;
       byte[] _out16;
-      __default.Flatten(_158_res, out _out16);
-      _159_flat = _out16;
-      BigInteger _160_t;
-      _160_t = new BigInteger(0);
-      FileStream _161_ofs = default(FileStream);
+      __default.ArrayFromSeq<byte>(_187_f, out _out16);
+      _188_flat = _out16;
+      BigInteger _189_t;
+      _189_t = new BigInteger(0);
+      FileStream _190_ofs = default(FileStream);
       bool _out17;
       FileStream _out18;
-      FileStream.Open(_151_dstFile, out _out17, out _out18);
-      _152_ok = _out17;
-      _161_ofs = _out18;
-      if (!(_152_ok)) {
+      FileStream.Open(_179_dstFile, out _out17, out _out18);
+      _180_ok = _out17;
+      _190_ofs = _out18;
+      if (!(_180_ok)) {
         Dafny.Helpers.Print(Dafny.Sequence<char>.FromString("Problems opening out file "));
-        Dafny.Helpers.Print(_151_dstFile);
+        Dafny.Helpers.Print(_179_dstFile);
         Dafny.Helpers.Print(Dafny.Sequence<char>.FromString("\n"));
         return;
       }
-      int _162_start = 0;
-      if ((((new BigInteger(0)) - (BigInteger.Parse("2147483648"))) <= (new BigInteger((_159_flat).Length))) && ((new BigInteger((_159_flat).Length)) < (BigInteger.Parse("2147483648")))) {
-        _162_start = (int)(_159_flat).Length;
+      int _191_start = 0;
+      if ((((new BigInteger(0)) - (BigInteger.Parse("2147483648"))) <= (new BigInteger((_188_flat).Length))) && ((new BigInteger((_188_flat).Length)) < (BigInteger.Parse("2147483648")))) {
+        _191_start = (int)(_188_flat).Length;
       } else {
         return;
       }
       bool _out19;
-      (_161_ofs).Write(0, _159_flat, 0, _162_start, out _out19);
-      _152_ok = _out19;
-      if (!(_152_ok)) {
+      (_190_ofs).Write(0, _188_flat, 0, _191_start, out _out19);
+      _180_ok = _out19;
+      if (!(_180_ok)) {
         Dafny.Helpers.Print(Dafny.Sequence<char>.FromString("Problems writing to out file '"));
-        Dafny.Helpers.Print(_151_dstFile);
+        Dafny.Helpers.Print(_179_dstFile);
         Dafny.Helpers.Print(Dafny.Sequence<char>.FromString("'\n"));
         return;
       }
       bool _out20;
-      (_161_ofs).Close(out _out20);
-      _152_ok = _out20;
-      if (!(_152_ok)) {
+      (_190_ofs).Close(out _out20);
+      _180_ok = _out20;
+      if (!(_180_ok)) {
         Dafny.Helpers.Print(Dafny.Sequence<char>.FromString("Problems closing out file '"));
-        Dafny.Helpers.Print(_151_dstFile);
+        Dafny.Helpers.Print(_179_dstFile);
         Dafny.Helpers.Print(Dafny.Sequence<char>.FromString("'\n"));
         return;
       }
       Dafny.Helpers.Print(Dafny.Sequence<char>.FromString("'"));
-      Dafny.Helpers.Print(_150_srcFile);
+      Dafny.Helpers.Print(_178_srcFile);
       Dafny.Helpers.Print(Dafny.Sequence<char>.FromString("' -> '"));
-      Dafny.Helpers.Print(_151_dstFile);
+      Dafny.Helpers.Print(_179_dstFile);
       Dafny.Helpers.Print(Dafny.Sequence<char>.FromString("'\n"));
     }
   }
