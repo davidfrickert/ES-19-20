@@ -22,78 +22,63 @@ requires index <= word.Length - query.Length
 {
   forall k :: index <= k < index + query.Length ==> word[k] == query[k - index]
 }
-
-method InsertInSeq(indexes: seq<nat>, index: nat, word: array<char>, query: array<char>) returns (i: seq<nat>)
+predicate IsMatchN(word: array<char>, query:array<char>, index: nat, n: nat) 
+reads word, query
 requires index <= word.Length - query.Length
-requires word.Length >= query.Length
-requires forall k :: 0 <= k < |indexes| ==> indexes[k] <= word.Length - query.Length
-requires forall k :: 0 <= k < |indexes| ==> IndexIsMatch(word, query, indexes[k])
-requires IndexIsMatch(word, query, index)
-ensures |i| == |indexes| + 1
-ensures forall k :: 0 <= k < |i| ==> i[k] <= word.Length - query.Length
-ensures forall k :: 0 <= k < |i| ==> IndexIsMatch(word, query, i[k])
+requires n <= query.Length
 {
-  i := indexes + [index];
+  forall k :: index <= k < index + n ==> word[k] == query[k - index]
 }
 
-method Grep(word: array<char>, query: array<char>) returns (found: bool, indexes: seq<nat>)
+// se count words de index até index + query.Length
+method IsMatch(word: array<char>, query: array<char>, index: int) returns (m: bool)
+requires 0 <= index <= word.Length - query.Length
+ensures m ==> IndexIsMatch(word, query, index)
+{
+  //var cnt := CountConsecutiveChars(word[index..index+query.Length], query[..]);
+  var j := 0;
+  while j < query.Length  && word[index + j] == query[j] 
+  invariant index + j <= word.Length
+  invariant j <= query.Length
+  invariant IsMatchN(word, query, index, j)
+  //invariant j + 1 == C(word[index..index + j + 1], query[..j + 1])
+  {
+    j := j + 1;
+  }
+
+  m := j == query.Length;
+}
+
+method  GrepNaive(word: array<char>, query: array<char>) returns (found: bool, indexes: seq<nat>)
+requires word.Length >= query.Length
 requires word.Length > 0
 requires query.Length > 0
-requires word.Length >= query.Length
 ensures forall k :: 0 <= k < |indexes| ==> indexes[k] < word.Length
 ensures forall k :: 0 <= k < |indexes| ==> indexes[k] + query.Length <= word.Length
 ensures forall k :: 0 <= k < |indexes| ==> IndexIsMatch(word, query, indexes[k])
+
 {
-  var i, j, pos: nat := 0, 0, 0;
+  var i := 0;
+  found := false;
   indexes := [];
 
-  while (i < word.Length) 
-  invariant i <= word.Length
-  invariant j < query.Length
-  invariant j <= i
-  invariant 0 <= pos <= i - j
+
+  while i <= word.Length - query.Length
   invariant forall k :: 0 <= k < |indexes| ==> indexes[k] < word.Length
-  invariant forall k :: 0 <= k < |indexes| ==> indexes[k] <= word.Length - query.Length
+  invariant forall k :: 0 <= k < |indexes| ==> indexes[k] + query.Length <= word.Length
   invariant forall k :: 0 <= k < |indexes| ==> IndexIsMatch(word, query, indexes[k])
 
-  decreases word.Length - i
-  // j > 0 && j < query.Length && i >= 0 && i < word.Length && w
-  // decreases if inRange(i, word.Length, j, query.Length) && word[i] == query[j] then query.Length - j else if inRange(i, word.Length, j, query.Length) &&  word[i] != query[j] && j > 0 then i - word.Length else word.Length - i
   {
-    var increment_j := false;
-    if word[i] == query[j] {
-      if j == 0 {
-        found, pos := true, i;  
-      }
-      increment_j := true;
-    } else if j > 0 {
-      pos, j, found := 0, 0, false;
-      
-      if word[i] == query[j] {
-        found, increment_j, pos := true, true, i;
-      }
-    } 
+    //var j := CountWords(word[i..i+query.Length], query[..]);
     
-    if j == query.Length - 1 {
-      if found {
-        if pos == i - j {
-          assert pos == i - j && j == query.Length - 1;
-          assert forall k :: pos <= k < pos + query.Length ==> word[k] == query[k-j];
-          //indexes := indexes + [pos];
-          indexes := InsertInSeq(indexes, pos, word, query);
-        }
-        pos, j, found := 0, 0, false;
-      }
-    } else if increment_j{
-      j := j + 1;
+    var m := IsMatch(word, query, i);
+
+    if m {
+      indexes := indexes + [i];
     }
     i := i + 1;
   }
-
-  if !found && |indexes| > 0 {
-    return true, indexes;
-  }
- 
+  return |indexes| > 0, indexes;
 }
 
 method CastArray(a: array<byte>) returns (chars: array<char>)
@@ -112,7 +97,7 @@ requires query.Length > 0
 requires word.Length >= query.Length
 {
   var indexes;
-  found, indexes := Grep(word, query);
+  found, indexes := GrepNaive(word, query);
 
   if !found {
     rst := [];
