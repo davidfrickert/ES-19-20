@@ -24,14 +24,7 @@ ensures forall i :: 0 <= i < a.Length ==> a[i] as char == chars[i]
   chars := new char[a.Length] (i requires 0 <= i < a.Length reads a => a[i] as char);
 }
 
-method GrepKMP(word: array<char>, pattern: array<char>) returns (found: bool, indexes: seq<nat>)
-requires word.Length > 0
-requires pattern.Length > 0
-{
-  var M, N := pattern.Length, word.Length;
-}
-
-method {:verify false} KMPSearch(word: array<char>, pattern: array<char>) returns (indexes: seq<nat>)
+method KMPSearch(word: array<char>, pattern: array<char>) returns (indexes: seq<nat>)
 requires word.Length > 0
 requires pattern.Length > 0
 requires word.Length >= pattern.Length
@@ -57,29 +50,49 @@ requires word.Length >= pattern.Length
     }
   }
 }
-method {:verify false} KMPTable(pattern: array<char>) returns (table: array<int>)
+
+// Permite que o loop da criação da tabela termine
+// Para qualquer indice da tabela o valor deve ser inferior ao seu indice
+predicate ValueBelowIndex(a: array<int>)
+reads a
+{
+  forall i :: 0 <= i < a.Length ==> a[i] < i
+}
+
+
+method  KMPTable(pattern: array<char>) returns (table: array<int>)
 requires pattern.Length > 0
 ensures table.Length == pattern.Length + 1
+ensures fresh(table)
 {
   var pos, cnd := 1, 0;
-  table := new int[pattern.Length + 1];
+  table := new int[pattern.Length + 1] (_ => 0);
   table[0] := -1;
-  
-  while pos < pattern.Length
-  {
+
+  while pos < pattern.Length && cnd < pattern.Length
+  invariant forall i :: 0 <= i < table.Length ==> -1 <= table[i] <= pattern.Length
+  invariant 0 <= cnd < table.Length
+  invariant pos >= cnd
+  invariant ValueBelowIndex(table)
+  { 
     if pattern[pos] == pattern[cnd] {
       table[pos] := table[cnd];
+
     } else {
       table[pos] := cnd;
       cnd := table[cnd];
+
       while cnd >= 0 && pattern[pos] != pattern[cnd] 
+      invariant cnd >= -1
+      invariant ValueBelowIndex(table)
+      decreases cnd
       {
         cnd := table[cnd];
       }
     }
     pos, cnd := pos + 1, cnd + 1;
   }
-  table[pos] := cnd;
+  table[table.Length - 1] := cnd;
 
 }
 
@@ -164,7 +177,7 @@ method {:main} Main(ghost env:HostEnvironment?)
     }
   
     var rst := KMPSearch(word, query);
-
+  
     
     print rst;
     
