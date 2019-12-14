@@ -31,7 +31,11 @@ requires word.Length >= pattern.Length
 {
   var j, k := 0, 0;
   var table := KMPTable(pattern);
-  while j < word.Length 
+  while j < word.Length
+    invariant 0 <= j <= word.Length
+    invariant ValueBelowIndex(table)
+    invariant k <= word.Length
+    decreases word.Length - j 
   {
     if word[j] == pattern[k]
     {
@@ -74,6 +78,7 @@ ensures fresh(table)
   invariant 0 <= cnd < table.Length
   invariant pos >= cnd
   invariant ValueBelowIndex(table)
+  decreases pattern.Length - pos
   { 
     if pattern[pos] == pattern[cnd] {
       table[pos] := table[cnd];

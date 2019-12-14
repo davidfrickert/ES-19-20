@@ -114,6 +114,7 @@ ensures m ==> exists v :: 0 <= v <= word.Length - query.Length && IndexIsMatch(w
   invariant index + j <= word.Length
   invariant j <= query.Length
   invariant IsMatchN(word, query, index, j)
+  decreases query.Length - j
   {
     j := j + 1;
   }
@@ -183,6 +184,7 @@ ensures forall k :: 0 <= k < |lines| ==> AnyMatch(lines[k], query)
   while line < all.Length 
   invariant forall i :: 0 <= i < |lines| ==> lines[i].Length >= query.Length
   invariant forall i :: 0 <= i < |lines| ==> AnyMatch(lines[i], query)
+  decreases all.Length - line
   {
     var cur := all[line];
     if cur.Length >= query.Length {
@@ -282,7 +284,9 @@ method {:main} Main(ghost env:HostEnvironment?)
     if found {
       print "Matching lines\n";
       var l := 0;
-      while l < |rst| {
+      while l < |rst| 
+      decreases|rst| - l
+      {
         print rst[l][..]; 
         l := l + 1;
       }
