@@ -31,7 +31,6 @@ ensures count == countF(arr[0..arr.Length], item)
 }
 
 function countF(items: seq<byte>, item: byte): nat
-
 {
   multiset(items)[item]
 }
@@ -77,9 +76,7 @@ ensures fresh(a) && a.Length > 0 && a.Length == countF(arr[0..arr.Length], item)
 
 method Flatten(a: array<array<byte>>) returns (all_bytes: seq<byte>)
 requires a.Length > 0
-//requires forall i :: 0 <=i<a.Length ==> a[i].Length>0 && a.Length>0 
-//ensures forall i, k:: 0 <=i<a.Length && 0 <= k < a[i].Length ==> a[i][k] in all_bytes[0..|all_bytes|]
-ensures LengthSum(a[..a.Length]) == |all_bytes|
+ensures LengthSum(a[..a.Length]) == |all_bytes| && all_bytes[..|all_bytes|] == allBytes(a[..a.Length])[..]
 {
   var sum: int :=0;
   all_bytes := [];
@@ -90,17 +87,23 @@ ensures LengthSum(a[..a.Length]) == |all_bytes|
     invariant 0 <= line <= a.Length
     invariant sum == LengthSum(a[..line])
     invariant |all_bytes| == sum
+    invariant allBytes(a[..line])[..] == all_bytes[..]
   {
     var inside := a[line];
-    all_bytes := all_bytes + inside[..];
     lemmasum(a, sum);
+    lemmaAllBytes(a, all_bytes);
+    all_bytes := all_bytes + inside[..];
     line := line + 1;
     sum := LengthSum(a[..line]);
   }
 }
 
-lemma lemmasum(a:array<array<byte>>, n:int)
+lemma {:axiom} lemmasum(a:array<array<byte>>, n:int)
   ensures forall i:: 0 <= i < a.Length && n == LengthSum(a[..i]) ==> (n + a[i].Length) == LengthSum(a[..i+1])
+
+lemma {:axiom} lemmaAllBytes(a:array<array<byte>>, n:seq<byte>)
+  ensures forall i:: 0 <= i < a.Length && n[..] == allBytes(a[..i])[..] ==> (n + a[i][..]) == allBytes(a[..i+1])[..]
+
 
 
 function method LengthSum(v:seq<array<byte>>): int
@@ -111,41 +114,55 @@ decreases v
   else v[0].Length + LengthSum(v[1..])
 }
    
-
+function method allBytes(v:seq<array<byte>>): seq<byte>
+decreases v
+reads v
+{
+  if |v| == 0 then []
+  else if |v| == 1 then v[0][..]
+  else v[0][..] + allBytes(v[1..])
+}
 
 predicate reversed (arr : array<array<byte>>, outarr: array<array<byte>>)
 requires arr.Length > 0 && outarr.Length > 0
 requires arr.Length == outarr.Length
 reads arr, outarr
 {
-  forall k :: 0<=k<=arr.Length-1 ==> outarr[k] == arr[(arr.Length-1-k)]
+  forall k :: 0<= k <arr.Length ==> outarr[k] == arr[(arr.Length-1-k)]
+}
+
+predicate reversing(arr : array<array<byte>>, outarr: array<array<byte>>, i: int)
+requires arr.Length > 0 && outarr.Length > 0
+requires i>= 0 && i <= arr.Length
+requires arr.Length == outarr.Length
+reads arr, outarr
+{
+  forall k :: 0 <= k < i ==> outarr[k] == arr[arr.Length-1-k]
 }
 
 method reverse(line: array<array<byte>>) returns (r: array<array<byte>>)
-  modifies line;
   requires line.Length > 0;
- // requires forall i :: 0 <=i<line.Length ==> line[i].Length>0;
   ensures line.Length == r.Length && reversed(line, r);
 {
-  r := new array[line.Length];
-  r := line;
+  r := new array[line.Length](i requires 0 <= i < line.Length reads line => line[i]);
   var i := 0;
   var l : int := line.Length - 1;
-  //TODO fzr reverse em cada linha, fica melhor
-   while i <= l
+
+   while i < line.Length
     invariant  0 <= i <= line.Length
     invariant r.Length == line.Length
-    invariant forall k :: (0 <= k < i || l-i < k <= l) ==> (line[k] == r[l-k]) 
-    decreases l-i
+    invariant reversing(line, r, i) 
+    decreases line.Length-i
   {
     r[i] := line[line.Length-1-i];
     i := i + 1;
   } 
 }
 
-
-method {:main} Main(ghost env: HostEnvironment?)
+method {:main} Main(ghost env: HostEnvironment?) 
   requires env != null && env.Valid() && env.ok.ok();
+  requires |env.constants.CommandLineArgs()| == 3
+  requires env.constants.CommandLineArgs()[1] in env.files.state()
   modifies env.ok
   modifies env.files
 {
@@ -162,18 +179,19 @@ method {:main} Main(ghost env: HostEnvironment?)
     var srcFile := HostConstants.GetCommandLineArg(1, env);
     var dstFile := HostConstants.GetCommandLineArg(2, env);
 
-    var ok;
+    var srcExists := FileStream.FileExists(srcFile, env);
+    var dstExists := FileStream.FileExists(dstFile, env);
 
-    ok := FileStream.FileExists(srcFile, env);
-
-    if !ok {
+    if !srcExists {
       print "In file '"; print srcFile; print "'doesn't exist";
       return;
     }
+    if dstExists {
+       print "In file '"; print dstFile; print "'already exist";
+      return;
+    }
 
-    var len;
-
-    ok, len := FileStream.FileLength(srcFile, env);
+    var ok, len := FileStream.FileLength(srcFile, env);
 
     if !ok {
       print "Couldn't stat file '"; print srcFile; print "' length";
@@ -181,7 +199,6 @@ method {:main} Main(ghost env: HostEnvironment?)
     }
     
     var fs;
-
     ok, fs := FileStream.Open(srcFile, env);
     
     if !ok {
@@ -210,12 +227,14 @@ method {:main} Main(ghost env: HostEnvironment?)
       return;
     }
     
+    //Split file into array by \n 
     var split := splitArrayBy(buffer, 10);
-    
+    //Reverse array
     var reverse := reverse(split);
-  
+    //Flatt the array into a sequence of bytes
     var f := Flatten(reverse);
     var flat := ArrayFromSeq(f);
+
     var t := 0;
     var ofs; ok, ofs := FileStream.Open(dstFile, env);
     if !ok {
@@ -241,9 +260,6 @@ method {:main} Main(ghost env: HostEnvironment?)
       print "Problems closing out file '"; print dstFile; print "'\n";
       return;
     }
-
+    print "Reversal successfull\n";
     print "'"; print srcFile; print "' -> '"; print dstFile; print "'\n";
-
-    
-
 }

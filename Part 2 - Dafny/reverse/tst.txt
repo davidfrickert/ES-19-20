@@ -1,5 +1,4 @@
-hello
-im
-diogo
-sup
-fcuitcyiviy 
+hello im diogo
+this is a text
+that will
+be reversed 
