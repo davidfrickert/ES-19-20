@@ -31,19 +31,27 @@ requires word.Length >= pattern.Length
 {
   var j, k := 0, 0;
   var table := KMPTable(pattern);
+  print "Table: "; print table[..]; print "\n";
+
   while j < word.Length 
+  invariant ValueBelowIndex(table)
+  invariant forall i :: 0 <= i < table.Length ==> -1 <= table[i] < pattern.Length
+  invariant 0 <= k < pattern.Length
+  decreases word.Length - j
   {
     if word[j] == pattern[k]
     {
       j := j + 1;
       k := k + 1;
+
       if k == pattern.Length {
         indexes := indexes + [j - k];
         k := table[k];
       }
     } else {
       k := table[k];
-      if k < 0 {
+
+      if k == -1 {
         j := j + 1;
         k := k + 1;
       }
@@ -64,27 +72,28 @@ method  KMPTable(pattern: array<char>) returns (table: array<int>)
 requires pattern.Length > 0
 ensures table.Length == pattern.Length + 1
 ensures fresh(table)
+ensures ValueBelowIndex(table)
+ensures table[table.Length - 1] >= 0
+ensures forall i :: 0 <= i < table.Length ==> -1 <= table[i] <= pattern.Length
 {
   var pos, cnd := 1, 0;
   table := new int[pattern.Length + 1] (_ => 0);
   table[0] := -1;
 
-  while pos < pattern.Length && cnd < pattern.Length
+  while pos < pattern.Length && cnd < pattern.Length - 1
   invariant forall i :: 0 <= i < table.Length ==> -1 <= table[i] <= pattern.Length
-  invariant 0 <= cnd < table.Length
+  invariant 0 <= cnd < table.Length - 1
   invariant pos >= cnd
   invariant ValueBelowIndex(table)
   { 
     if pattern[pos] == pattern[cnd] {
       table[pos] := table[cnd];
-
     } else {
       table[pos] := cnd;
       cnd := table[cnd];
 
       while cnd >= 0 && pattern[pos] != pattern[cnd] 
       invariant cnd >= -1
-      invariant ValueBelowIndex(table)
       decreases cnd
       {
         cnd := table[cnd];
@@ -92,8 +101,8 @@ ensures fresh(table)
     }
     pos, cnd := pos + 1, cnd + 1;
   }
+  
   table[table.Length - 1] := cnd;
-
 }
 
 method {:main} Main(ghost env:HostEnvironment?)
