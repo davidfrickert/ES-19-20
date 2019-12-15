@@ -24,7 +24,47 @@ ensures forall i :: 0 <= i < a.Length ==> a[i] as char == chars[i]
   chars := new char[a.Length] (i requires 0 <= i < a.Length reads a => a[i] as char);
 }
 
-method KMPSearch(word: array<char>, pattern: array<char>) returns (indexes: seq<nat>)
+
+predicate MatchesAtIndex(word: array<char>, query:array<char>, index: nat) 
+reads word, query
+requires index <= word.Length - query.Length
+{
+  forall k :: index <= k < index + query.Length ==> word[k] == query[k - index]
+}
+
+
+predicate MatchesUpToN(word: array<char>, query:array<char>, index: nat, n: nat) 
+reads word, query
+
+requires n <= query.Length
+{
+  if index > word.Length - query.Length then true
+  else forall k :: index <= k < index + n ==> word[k] == query[k - index]
+}
+
+
+
+predicate ExistsOne<T(==)>(a: array<T>, item: T)
+reads a
+{
+  exists i :: 0 <= i < a.Length && a[i] == item
+}
+predicate method IsSubsequence<T(==)>(q1: seq<T>, q2: seq<T>)
+{
+    exists offset: nat :: offset + |q2| <= |q1| && IsSubsequenceAtOffset(q1,q2,offset)
+}
+
+predicate method IsSubsequenceAtOffset<T(==)>(q1: seq<T>, q2: seq<T>, offset: nat)
+{ 
+    offset + |q2| <= |q1| && q2 <= q1[offset..]
+}
+
+predicate AnyMatch(word: array<char>, query: array<char>) 
+reads word, query
+{
+  exists i :: 0 <= i <= word.Length - query.Length && MatchesAtIndex(word, query, i)
+}
+method KMPSearch(word: array<char>, pattern: array<char>) returns (found: bool, indexes: seq<nat>)
 requires word.Length > 0
 requires pattern.Length > 0
 requires word.Length >= pattern.Length
@@ -35,8 +75,22 @@ ensures forall k :: 0 <= k < |indexes| ==>indexes[k]+pattern.Length <= word.Leng
 {
 
   var j, k := 0, 0;
-  var table := KMPTable(pattern);
-  print "Table: "; print table[..]; print "\n";
+  found := false;
+
+  //var table := KMPTable(pattern);
+  
+  /*if pattern.Length >= 8 {
+    var t1 := Table(pattern, 0, 1);
+    var t2 := Table(pattern, 1, 2);
+    var t3 := Table(pattern, 2, 3);
+    var t4 := Table(pattern, 3, 4);
+    var t5 := Table(pattern, 4, 5);
+    var t6 := Table(pattern, 5, 6);
+    var t7 := Table(pattern, 6, 7);
+    var t8 := Table(pattern, 7, 8);
+    print t1, "/", t2, "/", t3, "/", t4, "/", t5, "/", t6, "/", t7, "/", t8;
+  }*/
+  //print "Table: "; print table[..]; print "\n";
   indexes := [];
   
   while j < word.Length 
@@ -66,7 +120,50 @@ ensures forall k :: 0 <= k < |indexes| ==>indexes[k]+pattern.Length <= word.Leng
         if k == -1 {
           j := j + 1;
           k := k + 1;
+  while j <= word.Length - pattern.Length
+  //invariant ValueBelowIndex(table)
+  //invariant forall i :: 0 <= i < table.Length ==> -1 <= table[i] < pattern.Length
+  invariant 0 <= k < pattern.Length && k<=j
+  invariant forall m :: 0 <= m < |indexes| ==> indexes[m] + pattern.Length <= word.Length
+  invariant k == pattern.Length ==> word[indexes[|indexes|-1]..(j-k)+pattern.Length] == pattern[0..pattern.Length] && (j-k) in indexes
+  invariant k == pattern.Length ==> MatchesAtIndex(word, pattern, j-k) && AnyMatch(word, pattern) && (j-k) in indexes
+  //invariant forall i :: 0 <= i < |indexes| ==> MatchesAtIndex(word, pattern, indexes[i])
+  invariant k <= pattern.Length
+  invariant MatchesUpToN(word, pattern, j - k, k)
+  decreases *
+//  decreases word.Length - j, pattern.Length - table[k], pattern.Length - k
+  {
+    if word[j] == pattern[k]
+    {
+      print "Matched at j, k = ", j, ", ", k, "\n";
+      
+      assert MatchesUpToN(word, pattern, j - k, k);
+
+      j := j + 1;
+      k := k + 1;
+
+
+      if k == pattern.Length {
+        assert MatchesAtIndex(word, pattern, j - k);
+        found := true;
+        indexes := indexes + [j - k];
+        //k := table[k];
+        k := 0;
       }
+    } else {
+      var prev_k := k;
+      k := 0;
+      if prev_k == 0 {
+        j := j + 1;
+      }
+      /*
+      k := table[k];
+      if k == -1 {
+        j := j + 1;
+        k := k + 1;
+      }
+      */
+      
     }
   }
 }
@@ -96,24 +193,41 @@ reads a
 }
 
 
+
+function method Table(ptn: array<char>, lower: int, upper:int): int
+reads ptn
+requires ptn.Length > 0
+requires 0 <= lower < upper < ptn.Length
+{
+  if (upper - lower == 1 && ptn[upper] == ptn[0]) then -1
+  else
+    if IsSubsequence(ptn[..lower], ptn[lower..upper]) 
+      then 
+        if lower > 0 
+          then 1 + Table(ptn, lower - 1, upper)
+        else 1
+    else 0
+}
+
+
 method  KMPTable(pattern: array<char>) returns (table: array<int>)
 requires pattern.Length > 0
 ensures table.Length == pattern.Length + 1
 ensures fresh(table)
 ensures ValueBelowIndex(table)
-ensures table[table.Length - 1] >= 0
+ensures table[table.Length - 1] >= 0 && table[0] == -1
 ensures forall i :: 0 <= i < table.Length ==> -1 <= table[i] <= pattern.Length
 {
   var pos, cnd := 1, 0;
   table := new int[pattern.Length + 1] (_ => 0);
   table[0] := -1;
-
   while pos < pattern.Length && cnd < pattern.Length - 1
   invariant forall i :: 0 <= i < table.Length ==> -1 <= table[i] <= pattern.Length
   invariant 0 <= cnd < table.Length - 1
   invariant pos >= cnd
   invariant ValueBelowIndex(table)
   decreases pattern.Length - pos
+  invariant table[0] == -1
   { 
     if pattern[pos] == pattern[cnd] {
       table[pos] := table[cnd];
@@ -216,7 +330,7 @@ method {:main} Main(ghost env:HostEnvironment?)
       return;
     }
   
-    var rst := KMPSearch(word, query);
+    var found, rst := KMPSearch(word, query);
   
     
     print rst;
