@@ -78,7 +78,6 @@ ensures fresh(a) && a.Length > 0 && a.Length == countF(arr[0..arr.Length], item)
 }
 
 
-
 predicate inRange(i: int, len: int, j: int, len2: int) {
   0 <= i < len && 0 <= j < len2
 }
@@ -88,13 +87,15 @@ predicate method sorted(s: seq<nat>, diff: nat)
   forall i,j :: 0 <= i < j < |s| ==> s[i] <= s[j] - diff
 }
 
-predicate IndexIsMatch(word: array<char>, query:array<char>, index: nat) 
+predicate MatchesAtIndex(word: array<char>, query:array<char>, index: nat) 
 reads word, query
 requires index <= word.Length - query.Length
 {
   forall k :: index <= k < index + query.Length ==> word[k] == query[k - index]
 }
-predicate IsMatchN(word: array<char>, query:array<char>, index: nat, n: nat) 
+
+
+predicate MatchesUpToN(word: array<char>, query:array<char>, index: nat, n: nat) 
 reads word, query
 requires index <= word.Length - query.Length
 requires n <= query.Length
@@ -103,17 +104,16 @@ requires n <= query.Length
 }
 
 // se count words de index até index + query.Length
-method IsMatch(word: array<char>, query: array<char>, index: int) returns (m: bool)
+method FullMatch(word: array<char>, query: array<char>, index: int) returns (m: bool)
 requires 0 <= index <= word.Length - query.Length
-ensures m <==> IndexIsMatch(word, query, index)
-ensures m ==> exists v :: 0 <= v <= word.Length - query.Length && IndexIsMatch(word, query, v)
+ensures m <==> MatchesAtIndex(word, query, index)
+ensures m ==> exists v :: 0 <= v <= word.Length - query.Length && MatchesAtIndex(word, query, v)
 {
-  //var cnt := CountConsecutiveChars(word[index..index+query.Length], query[..]);
   var j := 0;
   while j < query.Length  && word[index + j] == query[j] 
   invariant index + j <= word.Length
   invariant j <= query.Length
-  invariant IsMatchN(word, query, index, j)
+  invariant MatchesUpToN(word, query, index, j)
   decreases query.Length - j
   {
     j := j + 1;
@@ -126,7 +126,7 @@ method  GrepNaive(word: array<char>, query: array<char>) returns (found: bool, i
 requires word.Length >= query.Length
 requires word.Length > 0
 requires query.Length > 0
-ensures forall k :: 0 <= k < |indexes| ==> indexes[k] + query.Length <= word.Length && indexes[k] < word.Length && IndexIsMatch(word, query, indexes[k])
+ensures forall k :: 0 <= k < |indexes| ==> indexes[k] + query.Length <= word.Length && indexes[k] < word.Length && MatchesAtIndex(word, query, indexes[k])
 ensures found ==> AnyMatch(word, query)
 {
   var i, m := 0, false;
@@ -136,15 +136,15 @@ ensures found ==> AnyMatch(word, query)
 
   while i <= word.Length - query.Length
   invariant forall k :: 0 <= k < |indexes| ==> 0 <= indexes[k] <= word.Length - query.Length
-  invariant forall k :: 0 <= k < |indexes| ==> IndexIsMatch(word, query, indexes[k])
+  invariant forall k :: 0 <= k < |indexes| ==> MatchesAtIndex(word, query, indexes[k])
   invariant forall k :: 0 <= k < |indexes| ==> 0 <= indexes[k] <= i
   invariant found ==> AnyMatch(word, query)
   decreases word.Length - query.Length - i
   {    
-    m := IsMatch(word, query, i);
+    m := FullMatch(word, query, i);
 
     if m {
-      found := m;
+      found := true;
       indexes := indexes + [i];
     }
     
@@ -166,7 +166,7 @@ ensures forall i :: 0 <= i < a.Length ==> a[i] as char == chars[i]
 predicate AnyMatch(word: array<char>, query: array<char>) 
 reads word, query
 {
-  exists i :: 0 <= i <= word.Length - query.Length && IndexIsMatch(word, query, i)
+  exists i :: 0 <= i <= word.Length - query.Length && MatchesAtIndex(word, query, i)
 }
 
 method BashGrep(word: array<char>, query: array<char>) returns (found: bool, lines: seq<array<char>>)
@@ -190,7 +190,7 @@ ensures forall k :: 0 <= k < |lines| ==> AnyMatch(lines[k], query)
     if cur.Length >= query.Length {
       found, indexes := GrepNaive(cur, query);
       if found {
-        assert forall k :: 0 <= k < |indexes| ==> IndexIsMatch(cur, query, indexes[k]);
+        assert forall k :: 0 <= k < |indexes| ==> MatchesAtIndex(cur, query, indexes[k]);
         lines := lines + [cur];
       }
     }
