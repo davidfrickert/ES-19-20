@@ -64,6 +64,7 @@ reads word, query
 {
   exists i :: 0 <= i <= word.Length - query.Length && MatchesAtIndex(word, query, i)
 }
+
 method KMPSearch(word: array<char>, pattern: array<char>) returns (found: bool, indexes: seq<nat>)
 requires word.Length > 0
 requires pattern.Length > 0
@@ -71,36 +72,24 @@ requires word.Length >= pattern.Length
 decreases *
 ensures |indexes| >= 0
 ensures forall k :: 0 <= k < |indexes| ==>indexes[k]+pattern.Length <= word.Length
-//ensures forall k :: 0 <= k < |indexes| && |indexes| > 0 ==> word[indexes[k]..indexes[k]+pattern.Length] == pattern[0..pattern.Length]
+ensures forall k :: 0 <= k < |indexes| && |indexes| > 0 ==> word[indexes[k]..indexes[k]+pattern.Length] == pattern[0..pattern.Length]
 {
 
   var j, k := 0, 0;
-  found := false;
-
-  //var table := KMPTable(pattern);
-  
-  /*if pattern.Length >= 8 {
-    var t1 := Table(pattern, 0, 1);
-    var t2 := Table(pattern, 1, 2);
-    var t3 := Table(pattern, 2, 3);
-    var t4 := Table(pattern, 3, 4);
-    var t5 := Table(pattern, 4, 5);
-    var t6 := Table(pattern, 5, 6);
-    var t7 := Table(pattern, 6, 7);
-    var t8 := Table(pattern, 7, 8);
-    print t1, "/", t2, "/", t3, "/", t4, "/", t5, "/", t6, "/", t7, "/", t8;
-  }*/
-  //print "Table: "; print table[..]; print "\n";
+  var table := KMPTable(pattern);
   indexes := [];
-  
+
   while j < word.Length 
   invariant ValueBelowIndex(table)
   invariant forall i :: 0 <= i < table.Length ==> -1 <= table[i] < pattern.Length
-  invariant 0 <= k <= pattern.Length && k<=j && 0 <= j <= word.Length
+  invariant 0 <= k < pattern.Length && k<=j && 0 <= j <= word.Length
   invariant forall m :: 0 <= m < |indexes| ==> indexes[m] + pattern.Length <= word.Length
-  //invariant forall m :: 0 <= m < |indexes| && |indexes| > 0 && m == j-k ==> pattern[0..pattern.Length] == word[indexes[m]..(indexes[m]+pattern.Length)]
-  //invariant k == pattern.Length ==> word[(j-k)..indexes[|indexes|-1]+pattern.Length] == pattern[0..pattern.Length]
-  //invariant forall m :: 0 <= m < |indexes| && |indexes| > 0 ==> pattern[0..pattern.Length] == word[indexes[m]..(indexes[m]+pattern.Length)]
+  invariant k >= pattern.Length ==> word[indexes[|indexes|-1]..(j-k)+pattern.Length] == pattern[0..pattern.Length] && (j-k) in indexes
+  invariant k >= pattern.Length ==> MatchesAtIndex(word, pattern, j-k) && AnyMatch(word, pattern) && (j-k) in indexes
+  invariant word == word
+ // invariant ((j-k) in indexes) ==> pattern[0..pattern.Length] == word[(j-k)..(j-k)+pattern.Length]
+//  invariant forall i :: 0 <= i < |indexes| ==> MatchesAtIndex(word, pattern, indexes[i])
+ // invariant MatchesUpToN(word, pattern, j - k, k)
   decreases *
 //  decreases word.Length - j, pattern.Length - table[k], pattern.Length - k
   {
@@ -108,7 +97,7 @@ ensures forall k :: 0 <= k < |indexes| ==>indexes[k]+pattern.Length <= word.Leng
       if word[j] == pattern[k]
       {
         j := j + 1;
-       k := k + 1;
+        k := k + 1;
 
         if k == pattern.Length {
          indexes := indexes + [j - k];
@@ -120,18 +109,35 @@ ensures forall k :: 0 <= k < |indexes| ==>indexes[k]+pattern.Length <= word.Leng
         if k == -1 {
           j := j + 1;
           k := k + 1;
+        }
+    }
+    }
+  }
+}
+  
+method KMPnoTable(word: array<char>, pattern: array<char>) returns (found: bool, indexes: seq<nat>)
+requires word.Length > 0
+requires pattern.Length > 0
+requires word.Length >= pattern.Length
+decreases *
+ensures |indexes| >= 0
+ensures forall k :: 0 <= k < |indexes| ==>indexes[k]+pattern.Length <= word.Length
+ensures forall k :: 0 <= k < |indexes| && |indexes| > 0 ==> word[indexes[k]..indexes[k]+pattern.Length] == pattern[0..pattern.Length]
+{
+   var j, k := 0, 0;
+  found := false;
+
+  indexes := [];
+  
   while j <= word.Length - pattern.Length
-  //invariant ValueBelowIndex(table)
-  //invariant forall i :: 0 <= i < table.Length ==> -1 <= table[i] < pattern.Length
   invariant 0 <= k < pattern.Length && k<=j
   invariant forall m :: 0 <= m < |indexes| ==> indexes[m] + pattern.Length <= word.Length
   invariant k == pattern.Length ==> word[indexes[|indexes|-1]..(j-k)+pattern.Length] == pattern[0..pattern.Length] && (j-k) in indexes
   invariant k == pattern.Length ==> MatchesAtIndex(word, pattern, j-k) && AnyMatch(word, pattern) && (j-k) in indexes
-  //invariant forall i :: 0 <= i < |indexes| ==> MatchesAtIndex(word, pattern, indexes[i])
+  invariant forall i :: 0 <= i < |indexes| ==> MatchesAtIndex(word, pattern, indexes[i])
   invariant k <= pattern.Length
   invariant MatchesUpToN(word, pattern, j - k, k)
   decreases *
-//  decreases word.Length - j, pattern.Length - table[k], pattern.Length - k
   {
     if word[j] == pattern[k]
     {
@@ -142,12 +148,10 @@ ensures forall k :: 0 <= k < |indexes| ==>indexes[k]+pattern.Length <= word.Leng
       j := j + 1;
       k := k + 1;
 
-
       if k == pattern.Length {
         assert MatchesAtIndex(word, pattern, j - k);
         found := true;
         indexes := indexes + [j - k];
-        //k := table[k];
         k := 0;
       }
     } else {
@@ -156,25 +160,13 @@ ensures forall k :: 0 <= k < |indexes| ==>indexes[k]+pattern.Length <= word.Leng
       if prev_k == 0 {
         j := j + 1;
       }
-      /*
-      k := table[k];
-      if k == -1 {
-        j := j + 1;
-        k := k + 1;
-      }
-      */
-      
     }
   }
-}
-  //var n:=0;
- /*  while n < |indexes|
-  {
-    print word[indexes[n]..indexes[n]+pattern.Length];
-    n := n + 1;
-  } */
 
 }
+
+
+
 /*
 lemma {:axiom} checkword(word:array<char>, pattern: array<char>, indexes: seq<nat> )
   requires word.Length > 0
