@@ -31,7 +31,7 @@ requires word.Length >= pattern.Length
 decreases *
 ensures |indexes| >= 0
 ensures forall k :: 0 <= k < |indexes| ==>indexes[k]+pattern.Length <= word.Length
-ensures forall k :: 0 <= k < |indexes| && |indexes| > 0 ==> word[indexes[k]..indexes[k]+pattern.Length] == pattern[0..pattern.Length]
+//ensures forall k :: 0 <= k < |indexes| && |indexes| > 0 ==> word[indexes[k]..indexes[k]+pattern.Length] == pattern[0..pattern.Length]
 {
 
   var j, k := 0, 0;
@@ -42,31 +42,34 @@ ensures forall k :: 0 <= k < |indexes| && |indexes| > 0 ==> word[indexes[k]..ind
   while j < word.Length 
   invariant ValueBelowIndex(table)
   invariant forall i :: 0 <= i < table.Length ==> -1 <= table[i] < pattern.Length
-  invariant 0 <= k < pattern.Length && k<=j
+  invariant 0 <= k <= pattern.Length && k<=j && 0 <= j <= word.Length
   invariant forall m :: 0 <= m < |indexes| ==> indexes[m] + pattern.Length <= word.Length
-  invariant k == pattern.Length ==> word[indexes[|indexes|-1]..(j-k)+pattern.Length] == pattern[0..pattern.Length] && (j-k) in indexes
-  invariant forall m :: 0 <= m < |indexes| && |indexes| > 0 ==> pattern[0..pattern.Length] == word[indexes[m]..(indexes[m]+pattern.Length)]
+  //invariant forall m :: 0 <= m < |indexes| && |indexes| > 0 && m == j-k ==> pattern[0..pattern.Length] == word[indexes[m]..(indexes[m]+pattern.Length)]
+  //invariant k == pattern.Length ==> word[(j-k)..indexes[|indexes|-1]+pattern.Length] == pattern[0..pattern.Length]
+  //invariant forall m :: 0 <= m < |indexes| && |indexes| > 0 ==> pattern[0..pattern.Length] == word[indexes[m]..(indexes[m]+pattern.Length)]
   decreases *
 //  decreases word.Length - j, pattern.Length - table[k], pattern.Length - k
   {
-    if word[j] == pattern[k]
-    {
-      j := j + 1;
-      k := k + 1;
-
-      if k == pattern.Length {
-        indexes := indexes + [j - k];
-        k := table[k];
-      }
-    } else {
-      k := table[k];
-
-      if k == -1 {
+    if k < pattern.Length{
+      if word[j] == pattern[k]
+      {
         j := j + 1;
-        k := k + 1;
+       k := k + 1;
+
+        if k == pattern.Length {
+         indexes := indexes + [j - k];
+         k := table[k];
+       }
+    } else {
+        k := table[k];
+
+        if k == -1 {
+          j := j + 1;
+          k := k + 1;
       }
     }
   }
+}
   //var n:=0;
  /*  while n < |indexes|
   {
@@ -119,7 +122,8 @@ ensures forall i :: 0 <= i < table.Length ==> -1 <= table[i] <= pattern.Length
       cnd := table[cnd];
 
       while cnd >= 0 && pattern[pos] != pattern[cnd] 
-      invariant cnd >= -1
+      invariant  -1 <= cnd <= pattern.Length
+      invariant 0 <= pos < pattern.Length
       decreases cnd
       {
         cnd := table[cnd];
