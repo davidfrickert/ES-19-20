@@ -28,16 +28,26 @@ method KMPSearch(word: array<char>, pattern: array<char>) returns (indexes: seq<
 requires word.Length > 0
 requires pattern.Length > 0
 requires word.Length >= pattern.Length
+decreases *
+ensures |indexes| >= 0
+ensures forall k :: 0 <= k < |indexes| ==>indexes[k]+pattern.Length <= word.Length
+ensures forall k :: 0 <= k < |indexes| && |indexes| > 0 ==> word[indexes[k]..indexes[k]+pattern.Length] == pattern[0..pattern.Length]
 {
+
   var j, k := 0, 0;
   var table := KMPTable(pattern);
   print "Table: "; print table[..]; print "\n";
-
+  indexes := [];
+  
   while j < word.Length 
   invariant ValueBelowIndex(table)
   invariant forall i :: 0 <= i < table.Length ==> -1 <= table[i] < pattern.Length
-  invariant 0 <= k < pattern.Length
-  decreases word.Length - j
+  invariant 0 <= k < pattern.Length && k<=j
+  invariant forall m :: 0 <= m < |indexes| ==> indexes[m] + pattern.Length <= word.Length
+  invariant k == pattern.Length ==> word[indexes[|indexes|-1]..(j-k)+pattern.Length] == pattern[0..pattern.Length] && (j-k) in indexes
+  invariant forall m :: 0 <= m < |indexes| && |indexes| > 0 ==> pattern[0..pattern.Length] == word[indexes[m]..(indexes[m]+pattern.Length)]
+  decreases *
+//  decreases word.Length - j, pattern.Length - table[k], pattern.Length - k
   {
     if word[j] == pattern[k]
     {
@@ -57,7 +67,22 @@ requires word.Length >= pattern.Length
       }
     }
   }
+  //var n:=0;
+ /*  while n < |indexes|
+  {
+    print word[indexes[n]..indexes[n]+pattern.Length];
+    n := n + 1;
+  } */
+
 }
+/*
+lemma {:axiom} checkword(word:array<char>, pattern: array<char>, indexes: seq<nat> )
+  requires word.Length > 0
+  requires pattern.Length > 0
+  requires word.Length >= pattern.Length
+  requires forall m :: 0 <= m < |indexes| ==> indexes[m] + pattern.Length <= word.Length
+  ensures forall m :: 0 <= m < |indexes| && |indexes| > 0 ==> pattern[0..pattern.Length] == word[indexes[m]..(indexes[m]+pattern.Length)]
+*/
 
 // Permite que o loop da criação da tabela termine
 // Para qualquer indice da tabela o valor deve ser inferior ao seu indice
@@ -110,6 +135,7 @@ method {:main} Main(ghost env:HostEnvironment?)
   requires env != null && env.Valid() && env.ok.ok();
    modifies env.ok
   modifies env.files
+  decreases *
 {
 
   var ncmd := HostConstants.NumCommandLineArgs(env);
