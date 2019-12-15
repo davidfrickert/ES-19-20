@@ -7,6 +7,7 @@
 
 include "Io.dfy"
 
+// Auxiliary Methods / functions / predicates from reverse
 method ArrayFromSeq<T>(s: seq<T>) returns (a: array<T>)
   ensures |s| == a.Length
   ensures a[0.. a.Length] == s
@@ -77,24 +78,23 @@ ensures fresh(a) && a.Length > 0 && a.Length == countF(arr[0..arr.Length], item)
   }
 }
 
+// End of Auxiliary from reverse
 
-predicate inRange(i: int, len: int, j: int, len2: int) {
-  0 <= i < len && 0 <= j < len2
-}
 
-predicate method sorted(s: seq<nat>, diff: nat)
-{
-  forall i,j :: 0 <= i < j < |s| ==> s[i] <= s[j] - diff
-}
+// Auxiliary methods / predicates / functions for grep
 
+// True if at 'index' of word there is a match (all characters from query match all characters from 'index' to 'index' + query.Length)
+// Equivalent to MatchesUpToN where n is the query length
 predicate MatchesAtIndex(word: array<char>, query:array<char>, index: nat) 
 reads word, query
 requires index <= word.Length - query.Length
 {
-  forall k :: index <= k < index + query.Length ==> word[k] == query[k - index]
+  MatchesUpToN(word, query, index, query.Length)
 }
 
-
+// True if at 'index', all characters match, up to 'n'
+// If n == query.Length then it is a total match
+// Else, it is a partial match
 predicate MatchesUpToN(word: array<char>, query:array<char>, index: nat, n: nat) 
 reads word, query
 requires index <= word.Length - query.Length
@@ -103,7 +103,27 @@ requires n <= query.Length
   forall k :: index <= k < index + n ==> word[k] == query[k - index]
 }
 
-// se count words de index até index + query.Length
+// True if there exists any word index that has a full match
+predicate AnyMatch(word: array<char>, query: array<char>) 
+reads word, query
+{
+  exists i :: 0 <= i <= word.Length - query.Length && MatchesAtIndex(word, query, i)
+}
+
+// Auxiliary method to transform array of bytes to array of char
+method CastArray(a: array<byte>) returns (chars: array<char>)
+requires a.Length > 0
+ensures fresh(chars)
+ensures a.Length == chars.Length
+ensures forall i :: 0 <= i < a.Length ==> a[i] as char == chars[i]
+
+{
+  chars := new char[a.Length] (i requires 0 <= i < a.Length reads a => a[i] as char);
+}
+
+// This method will check at index if there is a full match (i.e., all characters from query match in word)
+// It will ensure that if m (match) then it is in fact a match (using predicate MatchesAtIndex)
+// It also ensures that if m (match) then exists at least one index that is a match
 method FullMatch(word: array<char>, query: array<char>, index: int) returns (m: bool)
 requires 0 <= index <= word.Length - query.Length
 ensures m <==> MatchesAtIndex(word, query, index)
@@ -111,7 +131,9 @@ ensures m ==> exists v :: 0 <= v <= word.Length - query.Length && MatchesAtIndex
 {
   var j := 0;
   while j < query.Length  && word[index + j] == query[j] 
-  invariant index + j <= word.Length
+  // Loop invariant says that there is a partial match from index to index + j
+  // This is true because we only iterate if there is a match, and increment j
+  // At exit of loop we ensure a full match because j == query.Length
   invariant j <= query.Length
   invariant MatchesUpToN(word, query, index, j)
   decreases query.Length - j
@@ -122,6 +144,9 @@ ensures m ==> exists v :: 0 <= v <= word.Length - query.Length && MatchesAtIndex
   m := j == query.Length;
 }
 
+// Naive Grep method
+// Returns boolean found if there is any match and also sequence of indexes where the match was found
+// Ensures that all indexes are indeed a match and that if we found a match then we have atleast one match (pred AnyMatch)
 method  GrepNaive(word: array<char>, query: array<char>) returns (found: bool, indexes: seq<nat>)
 requires word.Length >= query.Length
 requires word.Length > 0
@@ -135,9 +160,14 @@ ensures found ==> AnyMatch(word, query)
 
 
   while i <= word.Length - query.Length
+  // Loop over word indexes, stopping before because last possible match is at word.Length - query.Length
+  // As invariant we chose some sanity properties, such as any index should be between (inclusive) 0 and word.Length - query.Length
+  // and should be less or equal than i
+  // Then, we also needed to ensure that all indexes are indeed a match and that if we found any match then there exists atleast one index that is a match
+
   invariant forall k :: 0 <= k < |indexes| ==> 0 <= indexes[k] <= word.Length - query.Length
-  invariant forall k :: 0 <= k < |indexes| ==> MatchesAtIndex(word, query, indexes[k])
   invariant forall k :: 0 <= k < |indexes| ==> 0 <= indexes[k] <= i
+  invariant forall k :: 0 <= k < |indexes| ==> MatchesAtIndex(word, query, indexes[k])
   invariant found ==> AnyMatch(word, query)
   decreases word.Length - query.Length - i
   {    
@@ -152,23 +182,11 @@ ensures found ==> AnyMatch(word, query)
   }
 }
 
-method CastArray(a: array<byte>) returns (chars: array<char>)
-requires a.Length > 0
-ensures fresh(chars)
-ensures a.Length == chars.Length
-ensures forall i :: 0 <= i < a.Length ==> a[i] as char == chars[i]
 
-{
-  chars := new char[a.Length] (i requires 0 <= i < a.Length reads a => a[i] as char);
-}
-
-
-predicate AnyMatch(word: array<char>, query: array<char>) 
-reads word, query
-{
-  exists i :: 0 <= i <= word.Length - query.Length && MatchesAtIndex(word, query, i)
-}
-
+// We also did the extra Bash Grep
+// First, we split the word by newlines, and then we apply the GrepNaive method to each line, searching for the query
+// To verify if this was done correctly, we ensured that the returned lines should be greater than the query
+// And that every line returned should have atleast one match
 method BashGrep(word: array<char>, query: array<char>) returns (found: bool, lines: seq<array<char>>)
 requires word.Length > 0
 requires query.Length > 0

@@ -12,7 +12,7 @@ method ArrayFromSeq<T>(s: seq<T>) returns (a: array<T>)
   a := new T[|s|] ( i requires 0 <= i < |s| => s[i] );
 }
 
-method countItem(arr: array<byte>, item: byte) returns (count: nat) 
+method countItem<T(==)>(arr: array<T>, item: T) returns (count: nat) 
 requires arr.Length > 0
 ensures count == countF(arr[0..arr.Length], item)
 {
@@ -30,12 +30,13 @@ ensures count == countF(arr[0..arr.Length], item)
   }
 }
 
-function countF(items: seq<byte>, item: byte): nat
+function countF<T>(items: seq<T>, item: T): nat
 {
   multiset(items)[item]
 }
 
-method splitArrayBy(arr: array<byte>, item: byte) returns (a: array<array<byte>>)
+
+method splitArrayBy<T(==)>(arr: array<T>, item: T) returns (a: array<array<T>>)
 requires arr.Length > 0
 ensures fresh(a) && a.Length > 0 && a.Length == countF(arr[0..arr.Length], item) + 1
 {
@@ -46,10 +47,10 @@ ensures fresh(a) && a.Length > 0 && a.Length == countF(arr[0..arr.Length], item)
   lines := lines + 1;
 
   if lines == 0 {
-    return new array<byte>[1] (_ => arr);
+    return new array<T>[1] (_ => arr);
   }
 
-  a := new array<byte>[lines];
+  a := new array<T>[lines];
 
   while(to < arr.Length && from < arr.Length && l_cnt < lines) 
   decreases arr.Length - to
@@ -65,7 +66,7 @@ ensures fresh(a) && a.Length > 0 && a.Length == countF(arr[0..arr.Length], item)
     }
     if(l_cnt == lines-1 && to == arr.Length-1 ){
       var tmp := [];
-      var n := [(10 as byte)];
+      var n := [item];
       tmp := arr[from..] + n;
       a[l_cnt] := ArrayFromSeq(tmp);
       l_cnt := l_cnt + 1;
@@ -74,7 +75,7 @@ ensures fresh(a) && a.Length > 0 && a.Length == countF(arr[0..arr.Length], item)
   }
 }
 
-method Flatten(a: array<array<byte>>) returns (all_bytes: seq<byte>)
+method Flatten<T(==)>(a: array<array<T>>) returns (all_bytes: seq<T>)
 requires a.Length > 0
 ensures LengthSum(a[..a.Length]) == |all_bytes| && all_bytes[..|all_bytes|] == allBytes(a[..a.Length])[..]
 {
@@ -98,15 +99,15 @@ ensures LengthSum(a[..a.Length]) == |all_bytes| && all_bytes[..|all_bytes|] == a
   }
 }
 
-lemma {:axiom} lemmasum(a:array<array<byte>>, n:int)
+lemma {:axiom} lemmasum<T(==)>(a:array<array<T>>, n:int)
   ensures forall i:: 0 <= i < a.Length && n == LengthSum(a[..i]) ==> (n + a[i].Length) == LengthSum(a[..i+1])
 
-lemma {:axiom} lemmaAllBytes(a:array<array<byte>>, n:seq<byte>)
+lemma {:axiom} lemmaAllBytes<T(==)>(a:array<array<T>>, n:seq<T>)
   ensures forall i:: 0 <= i < a.Length && n[..] == allBytes(a[..i])[..] ==> (n + a[i][..]) == allBytes(a[..i+1])[..]
 
 
 
-function method LengthSum(v:seq<array<byte>>): int
+function method LengthSum<T>(v:seq<array<T>>): int
 decreases v
 {
   if |v| == 0 then 0
@@ -114,7 +115,7 @@ decreases v
   else v[0].Length + LengthSum(v[1..])
 }
    
-function method allBytes(v:seq<array<byte>>): seq<byte>
+function method allBytes<T>(v:seq<array<T>>): seq<T>
 decreases v
 reads v
 {
@@ -123,7 +124,7 @@ reads v
   else v[0][..] + allBytes(v[1..])
 }
 
-predicate reversed (arr : array<array<byte>>, outarr: array<array<byte>>)
+predicate reversed<T>(arr : array<array<T>>, outarr: array<array<T>>)
 requires arr.Length > 0 && outarr.Length > 0
 requires arr.Length == outarr.Length
 reads arr, outarr
@@ -131,7 +132,7 @@ reads arr, outarr
   forall k :: 0<= k <arr.Length ==> outarr[k] == arr[(arr.Length-1-k)]
 }
 
-predicate reversing(arr : array<array<byte>>, outarr: array<array<byte>>, i: int)
+predicate reversing<T>(arr : array<array<T>>, outarr: array<array<T>>, i: int)
 requires arr.Length > 0 && outarr.Length > 0
 requires i>= 0 && i <= arr.Length
 requires arr.Length == outarr.Length
@@ -140,7 +141,7 @@ reads arr, outarr
   forall k :: 0 <= k < i ==> outarr[k] == arr[arr.Length-1-k]
 }
 
-method reverse(line: array<array<byte>>) returns (r: array<array<byte>>)
+method reverse<T>(line: array<array<T>>) returns (r: array<array<T>>)
   requires line.Length > 0;
   ensures line.Length == r.Length && reversed(line, r);
 {
@@ -260,6 +261,18 @@ method {:main} Main(ghost env: HostEnvironment?)
       print "Problems closing out file '"; print dstFile; print "'\n";
       return;
     }
+
+    /*
+    var in_bytes := ArrayFromSeq(env.files.state()[srcFile[..]]);
+    var out_bytes := ArrayFromSeq(env.files.state()[dstFile[..]]);
+    var f_in := splitArrayBy(in_bytes, 10);
+    var f_out := splitArrayBy(out_bytes, 10);
+
+
+    assert dstFile[..] in env.files.state();
+    assert reversed(f_in, f_out);
+    */
+
     print "Reversal successfull\n";
     print "'"; print srcFile; print "' -> '"; print dstFile; print "'\n";
 }
