@@ -65,18 +65,20 @@ reads word, query
   exists i :: 0 <= i <= word.Length - query.Length && MatchesAtIndex(word, query, i)
 }
 
-method KMPSearch(word: array<char>, pattern: array<char>) returns (found: bool, indexes: seq<nat>)
+method {:verify false} KMPSearch(word: array<char>, pattern: array<char>) returns (found: bool, indexes: seq<nat>)
 requires word.Length > 0
 requires pattern.Length > 0
 requires word.Length >= pattern.Length
 decreases *
 ensures |indexes| >= 0
 ensures forall k :: 0 <= k < |indexes| ==>indexes[k]+pattern.Length <= word.Length
-ensures forall k :: 0 <= k < |indexes| && |indexes| > 0 ==> word[indexes[k]..indexes[k]+pattern.Length] == pattern[0..pattern.Length]
+//ensures forall k :: 0 <= k < |indexes| && |indexes| > 0 ==> word[indexes[k]..indexes[k]+pattern.Length] == pattern[0..pattern.Length]
+//ensures forall k :: 0 <= k < |indexes| ==> MatchesAtIndex(word, pattern, indexes[k])
 {
 
   var j, k := 0, 0;
   var table := KMPTable(pattern);
+  print table[..], "\n";
   indexes := [];
 
   while j < word.Length 
@@ -85,11 +87,10 @@ ensures forall k :: 0 <= k < |indexes| && |indexes| > 0 ==> word[indexes[k]..ind
   invariant 0 <= k < pattern.Length && k<=j && 0 <= j <= word.Length
   invariant forall m :: 0 <= m < |indexes| ==> indexes[m] + pattern.Length <= word.Length
   invariant k >= pattern.Length ==> word[indexes[|indexes|-1]..(j-k)+pattern.Length] == pattern[0..pattern.Length] && (j-k) in indexes
-  invariant k >= pattern.Length ==> MatchesAtIndex(word, pattern, j-k) && AnyMatch(word, pattern) && (j-k) in indexes
-  invariant word == word
+  invariant k == pattern.Length ==> MatchesAtIndex(word, pattern, j-k) && AnyMatch(word, pattern) && (j-k) in indexes
  // invariant ((j-k) in indexes) ==> pattern[0..pattern.Length] == word[(j-k)..(j-k)+pattern.Length]
 //  invariant forall i :: 0 <= i < |indexes| ==> MatchesAtIndex(word, pattern, indexes[i])
- // invariant MatchesUpToN(word, pattern, j - k, k)
+  invariant MatchesUpToN(word, pattern, j - k, k)
   decreases *
 //  decreases word.Length - j, pattern.Length - table[k], pattern.Length - k
   {
@@ -226,7 +227,7 @@ ensures forall i :: 0 <= i < table.Length && table[i]>0 ==> pattern[0..table[i]]
  // invariant table[pos] > 1 && 1 <= pos < pattern.Length && pattern[pos] == pattern[cnd] ==> table[pos] == table[cnd]
   invariant table[pos] > 0 ==> pattern[0..table[pos]] == pattern[pos-table[pos]..pos]
   decreases pattern.Length - pos
-  invariant table[0] == -1
+
   { 
     if pattern[pos] == pattern[cnd] {
       table[pos] := table[cnd];

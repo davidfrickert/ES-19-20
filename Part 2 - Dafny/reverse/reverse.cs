@@ -8,7 +8,7 @@ using System;
 using System.Numerics;
 [assembly: DafnyAssembly.DafnySourceAttribute(@"
 // Dafny 2.3.0.10506
-// Command Line Options: reverse.dfy IoNative.cs
+// Command Line Options: .\reverse.dfy .\IoNative.cs
 // reverse.dfy
 
 method ArrayFromSeq<T>(s: seq<T>) returns (a: array<T>)
@@ -19,10 +19,10 @@ method ArrayFromSeq<T>(s: seq<T>) returns (a: array<T>)
   a := new T[|s|] ((i: int) requires 0 <= i < |s| => s[i]);
 }
 
-method countItem(arr: array<byte>, item: byte) returns (count: nat)
+method countItem<T(==)>(arr: array<T>, item: T) returns (count: nat)
   requires arr.Length > 0
   ensures count == countF(arr[0 .. arr.Length], item)
-  decreases arr, item
+  decreases arr
 {
   var i := 0;
   count := 0;
@@ -37,16 +37,16 @@ method countItem(arr: array<byte>, item: byte) returns (count: nat)
   }
 }
 
-function countF(items: seq<byte>, item: byte): nat
-  decreases items, item
+function countF<T>(items: seq<T>, item: T): nat
+  decreases items
 {
   multiset(items)[item]
 }
 
-method splitArrayBy(arr: array<byte>, item: byte) returns (a: array<array<byte>>)
+method splitArrayBy<T(==)>(arr: array<T>, item: T) returns (a: array<array<T>>)
   requires arr.Length > 0
   ensures fresh(a) && a.Length > 0 && a.Length == countF(arr[0 .. arr.Length], item) + 1
-  decreases arr, item
+  decreases arr
 {
   var from := 0;
   var to := 0;
@@ -54,9 +54,9 @@ method splitArrayBy(arr: array<byte>, item: byte) returns (a: array<array<byte>>
   var lines := countItem(arr, item);
   lines := lines + 1;
   if lines == 0 {
-    return new array<byte>[1] ((_: int) => arr);
+    return new array<T>[1] ((_: int) => arr);
   }
-  a := new array<byte>[lines];
+  a := new array<T>[lines];
   while to < arr.Length && from < arr.Length && l_cnt < lines
     invariant l_cnt <= lines && to + 1 > from
     invariant to <= arr.Length && from <= arr.Length
@@ -70,7 +70,7 @@ method splitArrayBy(arr: array<byte>, item: byte) returns (a: array<array<byte>>
     }
     if l_cnt == lines - 1 && to == arr.Length - 1 {
       var tmp := [];
-      var n := [10 as byte];
+      var n := [item];
       tmp := arr[from..] + n;
       a[l_cnt] := ArrayFromSeq(tmp);
       l_cnt := l_cnt + 1;
@@ -79,7 +79,7 @@ method splitArrayBy(arr: array<byte>, item: byte) returns (a: array<array<byte>>
   }
 }
 
-method Flatten(a: array<array<byte>>) returns (all_bytes: seq<byte>)
+method Flatten<T(==)>(a: array<array<T>>) returns (all_bytes: seq<T>)
   requires a.Length > 0
   ensures LengthSum(a[..a.Length]) == |all_bytes| && all_bytes[..|all_bytes|] == allBytes(a[..a.Length])[..]
   decreases a
@@ -103,15 +103,15 @@ method Flatten(a: array<array<byte>>) returns (all_bytes: seq<byte>)
   }
 }
 
-lemma {:axiom} lemmasum(a: array<array<byte>>, n: int)
+lemma {:axiom} lemmasum<T(==)>(a: array<array<T>>, n: int)
   ensures forall i: int :: 0 <= i < a.Length && n == LengthSum(a[..i]) ==> n + a[i].Length == LengthSum(a[..i + 1])
   decreases a, n
 
-lemma {:axiom} lemmaAllBytes(a: array<array<byte>>, n: seq<byte>)
+lemma {:axiom} lemmaAllBytes<T(==)>(a: array<array<T>>, n: seq<T>)
   ensures forall i: int :: 0 <= i < a.Length && n[..] == allBytes(a[..i])[..] ==> n + a[i][..] == allBytes(a[..i + 1])[..]
   decreases a, n
 
-function method LengthSum(v: seq<array<byte>>): int
+function method LengthSum<T>(v: seq<array<T>>): int
   decreases v
 {
   if |v| == 0 then
@@ -122,7 +122,7 @@ function method LengthSum(v: seq<array<byte>>): int
     v[0].Length + LengthSum(v[1..])
 }
 
-function method allBytes(v: seq<array<byte>>): seq<byte>
+function method allBytes<T>(v: seq<array<T>>): seq<T>
   reads v
   decreases v
 {
@@ -134,7 +134,7 @@ function method allBytes(v: seq<array<byte>>): seq<byte>
     v[0][..] + allBytes(v[1..])
 }
 
-predicate reversed(arr: array<array<byte>>, outarr: array<array<byte>>)
+predicate reversed<T>(arr: array<array<T>>, outarr: array<array<T>>)
   requires arr.Length > 0 && outarr.Length > 0
   requires arr.Length == outarr.Length
   reads arr, outarr
@@ -145,7 +145,7 @@ predicate reversed(arr: array<array<byte>>, outarr: array<array<byte>>)
       outarr[k] == arr[arr.Length - 1 - k]
 }
 
-predicate reversing(arr: array<array<byte>>, outarr: array<array<byte>>, i: int)
+predicate reversing<T>(arr: array<array<T>>, outarr: array<array<T>>, i: int)
   requires arr.Length > 0 && outarr.Length > 0
   requires i >= 0 && i <= arr.Length
   requires arr.Length == outarr.Length
@@ -157,12 +157,12 @@ predicate reversing(arr: array<array<byte>>, outarr: array<array<byte>>, i: int)
       outarr[k] == arr[arr.Length - 1 - k]
 }
 
-method reverse(line: array<array<byte>>) returns (r: array<array<byte>>)
+method reverse<T>(line: array<array<T>>) returns (r: array<array<T>>)
   requires line.Length > 0
   ensures line.Length == r.Length && reversed(line, r)
   decreases line
 {
-  r := new array<byte>[line.Length] ((i: int) requires 0 <= i < line.Length reads line => line[i]);
+  r := new array<T>[line.Length] ((i: int) requires 0 <= i < line.Length reads line => line[i]);
   var i := 0;
   var l: int := line.Length - 1;
   while i < line.Length
@@ -1933,7 +1933,7 @@ namespace _module {
       }
       a = _nw0;
     }
-    public static void countItem(byte[] arr, byte item, out BigInteger count)
+    public static void countItem<T>(T[] arr, T item, out BigInteger count)
     {
     TAIL_CALL_START: ;
       count = BigInteger.Zero;
@@ -1941,16 +1941,16 @@ namespace _module {
       _197_i = new BigInteger(0);
       count = new BigInteger(0);
       while ((_197_i) < (new BigInteger((arr).Length))) {
-        if (((arr)[(int)(_197_i)]) == (item)) {
+        if (((arr)[(int)(_197_i)]).Equals(item)) {
           count = (count) + (new BigInteger(1));
         }
         _197_i = (_197_i) + (new BigInteger(1));
       }
     }
-    public static void splitArrayBy(byte[] arr, byte item, out byte[][] a)
+    public static void splitArrayBy<T>(T[] arr, T item, out T[][] a)
     {
     TAIL_CALL_START: ;
-      a = new byte[0][];
+      a = new T[0][];
       BigInteger _198_from;
       _198_from = new BigInteger(0);
       BigInteger _199_to;
@@ -1959,12 +1959,12 @@ namespace _module {
       _200_l__cnt = new BigInteger(0);
       BigInteger _201_lines;
       BigInteger _out0;
-      __default.countItem(arr, item, out _out0);
+      __default.countItem<T>(arr, item, out _out0);
       _201_lines = _out0;
       _201_lines = (_201_lines) + (new BigInteger(1));
       if ((_201_lines) == (new BigInteger(0))) {
-        var _nw1 = new byte[(int)(new BigInteger(1))][];
-        var _arrayinit1 = Dafny.Helpers.Id<Func<byte[],Func<BigInteger,byte[]>>>((_202_arr) => ((System.Func<BigInteger, byte[]>)((_203___v0) => {
+        var _nw1 = new T[(int)(new BigInteger(1))][];
+        var _arrayinit1 = Dafny.Helpers.Id<Func<T[],Func<BigInteger,T[]>>>((_202_arr) => ((System.Func<BigInteger, T[]>)((_203___v0) => {
           return _202_arr;
         })))(arr);
         for (var _arrayinit_01 = 0; _arrayinit_01 < _nw1.Length; _arrayinit_01++) {
@@ -1973,77 +1973,77 @@ namespace _module {
         a = _nw1;
         return;
       }
-      var _nw2 = Dafny.ArrayHelpers.InitNewArray1<byte[]>(new byte[0], (_201_lines));
+      var _nw2 = Dafny.ArrayHelpers.InitNewArray1<T[]>(new T[0], (_201_lines));
       a = _nw2;
       while ((((_199_to) < (new BigInteger((arr).Length))) && ((_198_from) < (new BigInteger((arr).Length)))) && ((_200_l__cnt) < (_201_lines))) {
-        if (((arr)[(int)(_199_to)]) == (item)) {
-          byte[] _out1;
-          __default.ArrayFromSeq<byte>(Dafny.Helpers.SeqFromArray(arr).Take((_199_to) + (new BigInteger(1))).Drop(_198_from), out _out1);
+        if (((arr)[(int)(_199_to)]).Equals(item)) {
+          T[] _out1;
+          __default.ArrayFromSeq<T>(Dafny.Helpers.SeqFromArray(arr).Take((_199_to) + (new BigInteger(1))).Drop(_198_from), out _out1);
           (a)[(int)((_200_l__cnt))] = _out1;
           _200_l__cnt = (_200_l__cnt) + (new BigInteger(1));
           _198_from = (_199_to) + (new BigInteger(1));
         }
         if (((_200_l__cnt) == ((_201_lines) - (new BigInteger(1)))) && ((_199_to) == ((new BigInteger((arr).Length)) - (new BigInteger(1))))) {
-          Dafny.Sequence<byte> _204_tmp;
-          _204_tmp = Dafny.Sequence<byte>.FromElements();
-          Dafny.Sequence<byte> _205_n;
-          _205_n = Dafny.Sequence<byte>.FromElements((byte)(10));
+          Dafny.Sequence<T> _204_tmp;
+          _204_tmp = Dafny.Sequence<T>.FromElements();
+          Dafny.Sequence<T> _205_n;
+          _205_n = Dafny.Sequence<T>.FromElements(item);
           _204_tmp = (Dafny.Helpers.SeqFromArray(arr).Drop(_198_from)).Concat(_205_n);
-          byte[] _out2;
-          __default.ArrayFromSeq<byte>(_204_tmp, out _out2);
+          T[] _out2;
+          __default.ArrayFromSeq<T>(_204_tmp, out _out2);
           (a)[(int)((_200_l__cnt))] = _out2;
           _200_l__cnt = (_200_l__cnt) + (new BigInteger(1));
         }
         _199_to = (_199_to) + (new BigInteger(1));
       }
     }
-    public static void Flatten(byte[][] a, out Dafny.Sequence<byte> all__bytes)
+    public static void Flatten<T>(T[][] a, out Dafny.Sequence<T> all__bytes)
     {
     TAIL_CALL_START: ;
-      all__bytes = Dafny.Sequence<byte>.Empty;
+      all__bytes = Dafny.Sequence<T>.Empty;
       BigInteger _206_sum;
       _206_sum = new BigInteger(0);
-      all__bytes = Dafny.Sequence<byte>.FromElements();
+      all__bytes = Dafny.Sequence<T>.FromElements();
       BigInteger _207_line;
       _207_line = new BigInteger(0);
       while ((_207_line) < (new BigInteger((a).Length))) {
-        byte[] _208_inside;
+        T[] _208_inside;
         _208_inside = (a)[(int)(_207_line)];
         { }
         { }
         all__bytes = (all__bytes).Concat(Dafny.Helpers.SeqFromArray(_208_inside));
         _207_line = (_207_line) + (new BigInteger(1));
-        _206_sum = __default.LengthSum(Dafny.Helpers.SeqFromArray(a).Take(_207_line));
+        _206_sum = __default.LengthSum<T>(Dafny.Helpers.SeqFromArray(a).Take(_207_line));
       }
     }
-    public static BigInteger LengthSum(Dafny.Sequence<byte[]> v) {
+    public static BigInteger LengthSum<T>(Dafny.Sequence<T[]> v) {
       if ((new BigInteger((v).Count)) == (new BigInteger(0))) {
         return new BigInteger(0);
       } else  {
         if ((new BigInteger((v).Count)) == (new BigInteger(1))) {
           return new BigInteger(((v).Select(new BigInteger(0))).Length);
         } else  {
-          return (new BigInteger(((v).Select(new BigInteger(0))).Length)) + (__default.LengthSum((v).Drop(new BigInteger(1))));
+          return (new BigInteger(((v).Select(new BigInteger(0))).Length)) + (__default.LengthSum<T>((v).Drop(new BigInteger(1))));
         }
       }
     }
-    public static Dafny.Sequence<byte> allBytes(Dafny.Sequence<byte[]> v) {
+    public static Dafny.Sequence<T> allBytes<T>(Dafny.Sequence<T[]> v) {
       if ((new BigInteger((v).Count)) == (new BigInteger(0))) {
-        return Dafny.Sequence<byte>.FromElements();
+        return Dafny.Sequence<T>.FromElements();
       } else  {
         if ((new BigInteger((v).Count)) == (new BigInteger(1))) {
           return Dafny.Helpers.SeqFromArray((v).Select(new BigInteger(0)));
         } else  {
-          return (Dafny.Helpers.SeqFromArray((v).Select(new BigInteger(0)))).Concat(__default.allBytes((v).Drop(new BigInteger(1))));
+          return (Dafny.Helpers.SeqFromArray((v).Select(new BigInteger(0)))).Concat(__default.allBytes<T>((v).Drop(new BigInteger(1))));
         }
       }
     }
-    public static void reverse(byte[][] line, out byte[][] r)
+    public static void reverse<T>(T[][] line, out T[][] r)
     {
     TAIL_CALL_START: ;
-      r = new byte[0][];
-      var _nw3 = new byte[(int)(new BigInteger((line).Length))][];
-      var _arrayinit2 = Dafny.Helpers.Id<Func<byte[][],Func<BigInteger,byte[]>>>((_209_line) => ((System.Func<BigInteger, byte[]>)((_210_i) => {
+      r = new T[0][];
+      var _nw3 = new T[(int)(new BigInteger((line).Length))][];
+      var _arrayinit2 = Dafny.Helpers.Id<Func<T[][],Func<BigInteger,T[]>>>((_209_line) => ((System.Func<BigInteger, T[]>)((_210_i) => {
         return (_209_line)[(int)(_210_i)];
       })))(line);
       for (var _arrayinit_02 = 0; _arrayinit_02 < _nw3.Length; _arrayinit_02++) {
@@ -2155,15 +2155,15 @@ namespace _module {
       }
       byte[][] _223_split;
       byte[][] _out14;
-      __default.splitArrayBy(_221_buffer, 10, out _out14);
+      __default.splitArrayBy<byte>(_221_buffer, 10, out _out14);
       _223_split = _out14;
       byte[][] _224_reverse;
       byte[][] _out15;
-      __default.reverse(_223_split, out _out15);
+      __default.reverse<byte>(_223_split, out _out15);
       _224_reverse = _out15;
       Dafny.Sequence<byte> _225_f;
       Dafny.Sequence<byte> _out16;
-      __default.Flatten(_224_reverse, out _out16);
+      __default.Flatten<byte>(_224_reverse, out _out16);
       _225_f = _out16;
       byte[] _226_flat;
       byte[] _out17;

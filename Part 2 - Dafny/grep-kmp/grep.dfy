@@ -15,13 +15,14 @@ predicate inRange(i: int, len: int, j: int, len2: int) {
 method fillLps(query: array<char>) returns (lps: array<int>)
 requires query.Length > 0
 {
-  lps := new int[query.Length];
+  lps := new int[query.Length] (_ => 0);
   var len := 0;
   var i := 1;
   lps[0] := 0;
 
-  while(i < query.Length)
+  while(i < query.Length && len < query.Length)
   invariant i <= query.Length
+  invariant i >= len
   decreases query.Length - i
   {
     if(query[i] == query[len]){
