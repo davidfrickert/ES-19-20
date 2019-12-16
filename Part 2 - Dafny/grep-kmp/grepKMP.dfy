@@ -166,6 +166,56 @@ ensures forall k :: 0 <= k < |indexes| && |indexes| > 0 ==> word[indexes[k]..ind
 
 }
 
+method  KMPEasy(word: array<char>, pattern: array<char>) returns (found: bool, indexes: seq<nat>)
+requires word.Length > 0
+requires pattern.Length > 0
+requires word.Length >= pattern.Length
+decreases *
+ensures |indexes| >= 0
+ensures forall k :: 0 <= k < |indexes| ==>indexes[k]+pattern.Length <= word.Length
+//ensures forall k :: 0 <= k < |indexes| && |indexes| > 0 ==> word[indexes[k]..indexes[k]+pattern.Length] == pattern[0..pattern.Length]
+//ensures forall k :: 0 <= k < |indexes| ==> MatchesAtIndex(word, pattern, indexes[k])
+{
+
+  var j, k := 0, 0;
+  var table := KMPTableEasy(pattern);
+  print table[..], "\n";
+  indexes := [];
+
+  while j < word.Length 
+  //invariant ValueBelowIndex(table)
+  invariant forall i :: 0 <= i < table.Length ==> -1 <= table[i] < pattern.Length
+  invariant 0 <= k < pattern.Length && k<=j && 0 <= j <= word.Length
+  invariant forall m :: 0 <= m < |indexes| ==> indexes[m] + pattern.Length <= word.Length
+  invariant k >= pattern.Length ==> word[indexes[|indexes|-1]..(j-k)+pattern.Length] == pattern[0..pattern.Length] && (j-k) in indexes
+  invariant k == pattern.Length ==> MatchesAtIndex(word, pattern, j-k) && AnyMatch(word, pattern) && (j-k) in indexes
+ // invariant ((j-k) in indexes) ==> pattern[0..pattern.Length] == word[(j-k)..(j-k)+pattern.Length]
+//  invariant forall i :: 0 <= i < |indexes| ==> MatchesAtIndex(word, pattern, indexes[i])
+  invariant MatchesUpToN(word, pattern, j - k, k)
+  decreases *
+//  decreases word.Length - j, pattern.Length - table[k], pattern.Length - k
+  {
+    if k < pattern.Length{
+      if word[j] == pattern[k]
+      {
+        j := j + 1;
+        k := k + 1;
+
+        if k == pattern.Length {
+         indexes := indexes + [j - k];
+         k := table[k - 1];
+       }
+    } else {
+        if k != 0 {
+          k := table[k - 1];
+        } else {
+          j := j + 1;
+        }
+    }
+    }
+  }
+}
+
 
 
 /*
@@ -187,7 +237,7 @@ reads a
 
 
 
-function method Table(ptn: array<char>, lower: int, upper:int): int
+function method VerifyTable(ptn: array<char>, lower: int, upper:int): int
 reads ptn
 decreases {ptn}, ptn, lower, upper
 requires ptn.Length > 0
@@ -198,13 +248,20 @@ requires 0 <= lower < upper < ptn.Length
     if IsSubsequence(ptn[..lower], ptn[lower..upper]) 
       then 
         if lower > 0 
-          then 1 + Table(ptn, lower - 1, upper)
+          then 1 + VerifyTable(ptn, lower - 1, upper)
         else 1
     else 0
 }
 
+predicate  CheckTable(ptn: array<char>, index: nat, score: nat) 
+requires score <= index < ptn.Length
+reads ptn
+{
+  ptn[index + 1 - score..index + 1] == ptn[0..score]
+}
 
-method  KMPTable(pattern: array<char>) returns (table: array<int>)
+
+method {:verify false} KMPTable(pattern: array<char>) returns (table: array<int>)
 requires pattern.Length > 0
 ensures table.Length == pattern.Length + 1
 ensures fresh(table)
@@ -247,6 +304,37 @@ ensures forall i :: 0 <= i < table.Length && table[i]>0 ==> pattern[0..table[i]]
   }
   
   table[table.Length - 1] := cnd;
+}
+
+method KMPTableEasy(pattern: array<char>) returns (table: array<int>) 
+requires pattern.Length > 0
+ensures pattern.Length == table.Length
+ensures forall v :: 0 <= v < table.Length ==> table[v] <= v && 0 <= table[v] < pattern.Length
+ensures forall v :: 0 <= v < table.Length ==> CheckTable(pattern, v, table[v])
+{
+  table := new int[pattern.Length] (_ => 0);
+  var i, j := 1, 0;
+  while i < pattern.Length 
+  decreases pattern.Length - i
+  invariant j <= i
+  invariant forall v :: 0 <= v < i < table.Length ==> table[v] <= v
+  invariant forall v :: 0 <= v < i < table.Length ==> table[v] <= v && 0 <= table[v] < pattern.Length
+  invariant forall v :: 0 <= v < i < table.Length ==> CheckTable(pattern, v, table[v])
+  {
+    while j != 0 && pattern[j] != pattern[i] 
+    invariant 0 <= j < pattern.Length
+    decreases j
+    {
+      j := table[j - 1];
+    }
+
+    if pattern[j] == pattern[i] {
+      j := j + 1;
+    }
+    
+    table[i] := j;
+    i := i + 1;
+  }
 }
 
 method {:main} Main(ghost env:HostEnvironment?)
@@ -330,7 +418,7 @@ method {:main} Main(ghost env:HostEnvironment?)
       return;
     }
   
-    var found, rst := KMPSearch(word, query);
+    var found, rst := KMPEasy(word, query);
   
     
     print rst;
