@@ -35,32 +35,44 @@ function countF<T>(items: seq<T>, item: T): nat
   multiset(items)[item]
 }
 
-
-method splitArrayBy<T(==)>(arr: array<T>, item: T) returns (a: array<array<T>>)
+predicate isLast<T>(a: array<T>, item: T)
+reads a
+requires a.Length > 0
+{
+  a[a.Length - 1] == item
+}
+method splitArrayBy<T(==)>(arr: array<T>, item: T) returns (a: seq<seq<T>>)
 requires arr.Length > 0
-ensures fresh(a) && a.Length > 0 && a.Length == countF(arr[0..arr.Length], item) + 1
+ensures |a| > 0
+ensures isLast(arr, item) ==> |a| == countF(arr[0..arr.Length], item)
+ensures !isLast(arr, item) ==> |a| == countF(arr[0..arr.Length], item) + 1
 {
   var from := 0;
   var to := 0;
   var l_cnt := 0;
   var lines := countItem(arr, item);
-  lines := lines + 1;
 
   if lines == 0 {
-    return new array<T>[1] (_ => arr);
+    return [arr[..]];
+  }
+  if arr[arr.Length - 1] != item {
+    lines := lines + 1;
   }
 
-  a := new array<T>[lines];
+  var tmp := new seq<T>[lines];
+  a := tmp[..];
 
   while(to < arr.Length && from < arr.Length && l_cnt < lines) 
   decreases arr.Length - to
   decreases arr.Length - from
   invariant l_cnt <= lines && to + 1 > from
   invariant to <= arr.Length && from <= arr.Length
-  invariant a.Length == countF(arr[0..arr.Length], item) + 1
+  invariant isLast(arr, item) ==> |a| == countF(arr[0..arr.Length], item)
+  invariant !isLast(arr, item) ==> |a| == countF(arr[0..arr.Length], item) + 1
   {
     if (arr[to] == item){
-      a[l_cnt] := ArrayFromSeq(arr[from..to + 1]);
+      a := a[l_cnt:=arr[from..to + 1]];
+      //a[l_cnt] := arr[from..to + 1];
       l_cnt := l_cnt + 1;
       from := to + 1;
     }
@@ -68,24 +80,25 @@ ensures fresh(a) && a.Length > 0 && a.Length == countF(arr[0..arr.Length], item)
       var tmp := [];
       var n := [item];
       tmp := arr[from..] + n;
-      a[l_cnt] := ArrayFromSeq(tmp);
+      //a[l_cnt] := tmp;
+      a := a[l_cnt:=tmp];
       l_cnt := l_cnt + 1;
     } 
     to := to + 1;
   }
 }
 
-method Flatten<T(==)>(a: array<array<T>>) returns (all_bytes: seq<T>)
-requires a.Length > 0
-ensures LengthSum(a[..a.Length]) == |all_bytes| && all_bytes[..|all_bytes|] == allBytes(a[..a.Length])[..]
+method Flatten<T(==)>(a: seq<seq<T>>) returns (all_bytes: seq<T>)
+requires |a| > 0
+ensures LengthSum(a[..|a|]) == |all_bytes| && all_bytes[..|all_bytes|] == allBytes(a[..|a|])[..]
 {
   var sum: int :=0;
   all_bytes := [];
   var line := 0;
   
-  while ( line < a.Length) 
-    decreases a.Length - line
-    invariant 0 <= line <= a.Length
+  while ( line < |a|) 
+    decreases |a| - line
+    invariant 0 <= line <= |a|
     invariant sum == LengthSum(a[..line])
     invariant |all_bytes| == sum
     invariant allBytes(a[..line])[..] == all_bytes[..]
@@ -99,63 +112,64 @@ ensures LengthSum(a[..a.Length]) == |all_bytes| && all_bytes[..|all_bytes|] == a
   }
 }
 
-lemma {:axiom} lemmasum<T(==)>(a:array<array<T>>, n:int)
-  ensures forall i:: 0 <= i < a.Length && n == LengthSum(a[..i]) ==> (n + a[i].Length) == LengthSum(a[..i+1])
+lemma {:axiom} lemmasum<T(==)>(a:seq<seq<T>>, n:int)
+  ensures forall i:: 0 <= i < |a| && n == LengthSum(a[..i]) ==> (n + |a[i]|) == LengthSum(a[..i+1])
 
-lemma {:axiom} lemmaAllBytes<T(==)>(a:array<array<T>>, n:seq<T>)
-  ensures forall i:: 0 <= i < a.Length && n[..] == allBytes(a[..i])[..] ==> (n + a[i][..]) == allBytes(a[..i+1])[..]
+lemma {:axiom} lemmaAllBytes<T(==)>(a:seq<seq<T>>, n:seq<T>)
+  ensures forall i:: 0 <= i < |a| && n[..] == allBytes(a[..i])[..] ==> (n + a[i][..]) == allBytes(a[..i+1])[..]
 
 
 
-function method LengthSum<T>(v:seq<array<T>>): int
+function method LengthSum<T>(v:seq<seq<T>>): int
 decreases v
 {
   if |v| == 0 then 0
-  else if |v| == 1 then v[0].Length
-  else v[0].Length + LengthSum(v[1..])
+  else if |v| == 1 then |v[0]|
+  else |v[0]| + LengthSum(v[1..])
 }
    
-function method allBytes<T>(v:seq<array<T>>): seq<T>
+function method allBytes<T>(v:seq<seq<T>>): seq<T>
 decreases v
-reads v
 {
   if |v| == 0 then []
   else if |v| == 1 then v[0][..]
   else v[0][..] + allBytes(v[1..])
 }
 
-predicate reversed<T>(arr : array<array<T>>, outarr: array<array<T>>)
-requires arr.Length > 0 && outarr.Length > 0
-requires arr.Length == outarr.Length
-reads arr, outarr
+predicate reversed<T>(arr : seq<seq<T>>, outarr: seq<seq<T>>)
+requires |arr| > 0 && |outarr| > 0
+requires |arr| == |outarr|
+
 {
-  forall k :: 0<= k <arr.Length ==> outarr[k] == arr[(arr.Length-1-k)]
+  forall k :: 0<= k < |arr| ==> outarr[k] == arr[(|arr|-1-k)]
 }
 
-predicate reversing<T>(arr : array<array<T>>, outarr: array<array<T>>, i: int)
-requires arr.Length > 0 && outarr.Length > 0
-requires i>= 0 && i <= arr.Length
-requires arr.Length == outarr.Length
-reads arr, outarr
+predicate reversing<T>(arr : seq<seq<T>>, outarr: seq<seq<T>>, i: int)
+requires |arr| > 0 && |outarr| > 0
+requires i>= 0 && i <= |arr|
+requires |arr| == |outarr|
+
 {
-  forall k :: 0 <= k < i ==> outarr[k] == arr[arr.Length-1-k]
+  forall k :: 0 <= k < i ==> outarr[k] == arr[|arr|-1-k]
 }
 
-method reverse<T>(line: array<array<T>>) returns (r: array<array<T>>)
-  requires line.Length > 0;
-  ensures line.Length == r.Length && reversed(line, r);
+method reverse<T>(line: seq<seq<T>>) returns (r: seq<seq<T>>)
+  requires |line| > 0;
+  ensures |line| == |r| && reversed(line, r);
 {
-  r := new array[line.Length](i requires 0 <= i < line.Length reads line => line[i]);
+  //r := new array[line.Length](i requires 0 <= i < line.Length reads line => line[i]);
+  r := line;
   var i := 0;
-  var l : int := line.Length - 1;
+  var l : int := |line|- 1;
 
-   while i < line.Length
-    invariant  0 <= i <= line.Length
-    invariant r.Length == line.Length
+   while i < |line|
+    invariant  0 <= i <= |line|
+    invariant |r| == |line|
     invariant reversing(line, r, i) 
-    decreases line.Length-i
+    decreases |line|-i
   {
-    r[i] := line[line.Length-1-i];
+    //r[i] := line[|line|-1-i];
+    r := r[i:=line[|line|-1-i]];
     i := i + 1;
   } 
 }
@@ -196,7 +210,8 @@ method {:main} Main(ghost env: HostEnvironment?)
   requires env.constants.CommandLineArgs()[1] in env.files.state() && |env.files.state()[env.constants.CommandLineArgs()[1]]|>0
   modifies env.ok
   modifies env.files
-  ensures env.ok.ok() ==> env.constants.CommandLineArgs()[1] in env.files.state()
+ // ensures env.ok.ok() ==> env.constants.CommandLineArgs()[1] in env.files.state()
+
   //ensures env.files.state()[env.constants.CommandLineArgs()[1]] == []\
 {
     var ncmd := HostConstants.NumCommandLineArgs(env);
@@ -212,6 +227,8 @@ method {:main} Main(ghost env: HostEnvironment?)
     var srcFile := HostConstants.GetCommandLineArg(1, env);
     var dstFile := HostConstants.GetCommandLineArg(2, env);
 
+
+
     var srcExists := FileStream.FileExists(srcFile, env);
     var dstExists := FileStream.FileExists(dstFile, env);
 
@@ -220,7 +237,7 @@ method {:main} Main(ghost env: HostEnvironment?)
       return;
     }
     if dstExists {
-       print "In file '"; print dstFile; print "'already exist";
+       print "Out file '"; print dstFile; print "'already exist";
       return;
     }
 
@@ -259,17 +276,20 @@ method {:main} Main(ghost env: HostEnvironment?)
     if buffer.Length == 0 {
       return;
     }
-    
+    print buffer[..], "-buffer-\n";
     //Split file into array by \n 
     var split := splitArrayBy(buffer, 10);
     //Reverse array
+    print split, "-split-\n";
     var reverse := reverse(split);
+    print reverse, "-reversed-\n";
     //Flatt the array into a sequence of bytes
     var f := Flatten(reverse);
     var flat := ArrayFromSeq(f);
 
     var t := 0;
-    var ofs; ok, ofs := FileStream.Open(dstFile, env);
+    var ofs; 
+    ok, ofs := FileStream.Open(dstFile, env);
     if !ok {
       print "Problems opening out file "; print dstFile; print "\n";
       return;
@@ -295,16 +315,24 @@ method {:main} Main(ghost env: HostEnvironment?)
     }
 
     /*
-    var in_bytes := ArrayFromSeq(env.files.state()[srcFile[..]]);
-    var out_bytes := ArrayFromSeq(env.files.state()[dstFile[..]]);
-    var f_in := splitArrayBy(in_bytes, 10);
-    var f_out := splitArrayBy(out_bytes, 10);
+    assert |env.constants.CommandLineArgs()| == 3 ==> env.constants.CommandLineArgs()[1] == srcFile[..];
+    assert |env.constants.CommandLineArgs()| == 3 ==> env.constants.CommandLineArgs()[2] == dstFile[..];
+    
+    assert ok && |env.constants.CommandLineArgs()| == 3 ==> env.constants.CommandLineArgs()[1] in env.files.state();
+    assert srcFile[..] in env.files.state();
 
+    assert ok ==> dstFile[..] in env.files.state();
+    assert ok && |env.constants.CommandLineArgs()| == 3 ==> env.constants.CommandLineArgs()[2] in env.files.state();
 
-    assert dstFile[..] in env.files.state();
-    assert reversed(f_in, f_out);
+    assert ok &&|env.constants.CommandLineArgs()| == 3 ==> reversed(lines(env.files.state()[env.constants.CommandLineArgs()[1]])
+      	            ,lines(env.files.state()[env.constants.CommandLineArgs()[2]]));
+    
     */
+    assert env.constants.CommandLineArgs()[2] in env.files.state();
+    assert reversed(lines(env.files.state()[env.constants.CommandLineArgs()[1]])
+      	            ,lines(env.files.state()[env.constants.CommandLineArgs()[2]]));
+    
 
     print "Reversal successfull\n";
-    print "'"; print srcFile; print "' -> '"; print dstFile; print "'\n";
+    print "'"; print srcFile[..]; print "' -> '"; print dstFile[..]; print "'\n";
 }
