@@ -160,12 +160,44 @@ method reverse<T>(line: array<array<T>>) returns (r: array<array<T>>)
   } 
 }
 
+
+/* lines */
+function method {:verify false} lines(s: seq<byte>): seq<seq<byte>>
+decreases s
+{
+  if s == [] then []
+  else
+    var nextl := next_line(s);
+    if nextl == [] then [] else [nextl] + lines(s[|nextl|+1..])
+}
+
+function method {:verify false} next_line(s: seq<byte>): seq<byte>
+decreases s
+  requires 0 < |s|
+  ensures 0 < |next_line(s)|
+{
+  if s[0] != 10 then [s[0]] + next_line(s[1..]) else []
+}
+
+/* unlines */
+function method {:verify false} unlines(s: seq<seq<byte>>): seq<byte>
+decreases s
+{
+  if s == [] then []
+  else s[0] + [10] + unlines(s[1..])
+}
+
+
+
+
 method {:main} Main(ghost env: HostEnvironment?) 
   requires env != null && env.Valid() && env.ok.ok();
   requires |env.constants.CommandLineArgs()| == 3
-  requires env.constants.CommandLineArgs()[1] in env.files.state()
+  requires env.constants.CommandLineArgs()[1] in env.files.state() && |env.files.state()[env.constants.CommandLineArgs()[1]]|>0
   modifies env.ok
   modifies env.files
+  ensures env.ok.ok() ==> env.constants.CommandLineArgs()[1] in env.files.state()
+  //ensures env.files.state()[env.constants.CommandLineArgs()[1]] == []\
 {
     var ncmd := HostConstants.NumCommandLineArgs(env);
 

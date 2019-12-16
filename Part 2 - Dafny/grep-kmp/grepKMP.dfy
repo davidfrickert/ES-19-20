@@ -188,6 +188,7 @@ reads a
 
 function method Table(ptn: array<char>, lower: int, upper:int): int
 reads ptn
+decreases {ptn}, ptn, lower, upper
 requires ptn.Length > 0
 requires 0 <= lower < upper < ptn.Length
 {
@@ -209,15 +210,21 @@ ensures fresh(table)
 ensures ValueBelowIndex(table)
 ensures table[table.Length - 1] >= 0 && table[0] == -1
 ensures forall i :: 0 <= i < table.Length ==> -1 <= table[i] <= pattern.Length
+ensures forall i :: 0 <= i < table.Length && table[i]>0 ==> pattern[0..table[i]] == pattern[i-table[i]..i] 
 {
   var pos, cnd := 1, 0;
   table := new int[pattern.Length + 1] (_ => 0);
   table[0] := -1;
+
+
   while pos < pattern.Length && cnd < pattern.Length - 1
   invariant forall i :: 0 <= i < table.Length ==> -1 <= table[i] <= pattern.Length
-  invariant 0 <= cnd < table.Length - 1
-  invariant pos >= cnd
+  invariant 0 <= cnd <= pattern.Length - 1
+  invariant  1 <= pos <= pattern.Length
+  invariant pos > cnd
   invariant ValueBelowIndex(table)
+ // invariant table[pos] > 1 && 1 <= pos < pattern.Length && pattern[pos] == pattern[cnd] ==> table[pos] == table[cnd]
+  invariant table[pos] > 0 ==> pattern[0..table[pos]] == pattern[pos-table[pos]..pos]
   decreases pattern.Length - pos
   invariant table[0] == -1
   { 
