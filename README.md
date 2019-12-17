@@ -5,9 +5,14 @@
 
 **Table of Contents**
 
-[TOCM]
-
-[TOC]
+- [Dafny - Program Verification Project](#dafny---program-verification-project)
+- [Intro](#intro)
+- [Reverse a file](#reverse-a-file)
+- [Pattern matching](#pattern-matching)
+  * [Naive Approach](#naive-approach)
+  * [Knuth-Morris-Pratt Algorithm](#knuth-morris-pratt-algorithm)
+  * [Extra: Bash-style Line matching](#extra--bash-style-line-matching)
+- [Conclusion / Problems Faced](#conclusion---problems-faced)
 
 # Intro
 In this project we will attempt to write specifications for programs and prove that they are maintained by our implementation.
