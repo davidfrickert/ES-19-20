@@ -1,13 +1,18 @@
-# Dafny - Program Verification Project
+# Dafny - Software Specification Project 19/20
 
 ![](https://avatars0.githubusercontent.com/u/52358127?s=200&v=4)
 
 
 **Table of Contents**
 
-[TOCM]
-
-[TOC]
+- [Dafny - Software Specification Project 19/20](#dafny---software-specification-project-19-20)
+- [Intro](#intro)
+- [Reverse a file](#reverse-a-file)
+- [Pattern matching](#pattern-matching)
+  * [Naive Approach](#naive-approach)
+  * [Knuth-Morris-Pratt Algorithm](#knuth-morris-pratt-algorithm)
+  * [Extra: Bash-style Line matching](#extra--bash-style-line-matching)
+- [Conclusion / Problems Faced](#conclusion---problems-faced)
 
 # Intro
 In this project we will attempt to write specifications for programs and prove that they are maintained by our implementation.
