@@ -1,4 +1,4 @@
-# Dafny - Program Verification Project
+# Dafny - Software Specification Project 19/20
 
 ![](https://avatars0.githubusercontent.com/u/52358127?s=200&v=4)
 
