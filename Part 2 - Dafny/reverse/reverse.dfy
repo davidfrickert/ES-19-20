@@ -43,10 +43,10 @@ requires a.Length > 0
 }
 
 
-method splitArrayBy<T(==)>(arr: array<T>, item: T) returns (a: seq<seq<T>>)
+method {:verify false} splitArrayBy<T(==)>(arr: array<T>, item: T) returns (a: seq<seq<T>>)
 requires arr.Length > 0
-requires countF(arr[0..arr.Length], item) > 0
-requires isLast(arr, item)
+//requires countF(arr[0..arr.Length], item) > 0
+//requires isLast(arr, item)
 ensures |a| > 0
 ensures |a| == countF(arr[0..arr.Length], item)
 ensures LengthSum(a) == arr.Length
@@ -82,6 +82,7 @@ ensures LengthSum(a) == arr.Length
     */
     
     to := to + 1;
+    print LengthSum(a), "-", |arr[0..from]|, "\n";
   }
 }
 
@@ -113,9 +114,14 @@ lemma {:axiom} lemmasum<T(==)>(a:seq<seq<T>>, n:int)
   ensures forall i:: 0 <= i < |a| && n == LengthSum(a[..i]) ==> (n + |a[i]|) == LengthSum(a[..i+1])
 
 lemma {:axiom} lemmaAllBytes<T(==)>(a:seq<seq<T>>, n:seq<T>)
-  ensures forall i:: 0 <= i < |a| && n[..] == allBytes(a[..i])[..] ==> (n + a[i][..]) == allBytes(a[..i+1])[..]
+  ensures forall i:: 0 <= i < |a| && n == allBytes(a[..i]) ==> (n + a[i]) == allBytes(a[..i+1])
 
-
+lemma Sum<T(==)>(o: seq<seq<T>>, rev: seq<seq<T>>) 
+  requires |o| == |rev|
+  requires |o| > 0 && |rev| > 0
+  requires reversed(o, rev)
+ //ensures forall i:: 0 <= i < |o| ==> LengthSum(o[i..]) == LengthSum(rev[..|rev| -i - 1])
+  ensures LengthSum(o) == LengthSum(rev)
 
 function method LengthSum<T>(v:seq<seq<T>>): int
 decreases v
@@ -133,16 +139,15 @@ decreases v
   else v[0][..] + allBytes(v[1..])
 }
 
-predicate reversed<T>(arr : seq<seq<T>>, outarr: seq<seq<T>>)
-requires |arr| > 0 && |outarr| > 0
-requires |arr| == |outarr|
+predicate {:verify false} reversed<T>(arr : seq<seq<T>>, outarr: seq<seq<T>>)
+//requires |arr| > 0 && |outarr| > 0
+//requires |arr| == |outarr|
 
 {
   forall k :: 0<= k < |arr| ==> outarr[k] == arr[(|arr|-1-k)]
 }
 
 predicate reversing<T>(arr : seq<seq<T>>, outarr: seq<seq<T>>, i: int)
-requires |arr| > 0 && |outarr| > 0
 requires i>= 0 && i <= |arr|
 requires |arr| == |outarr|
 
@@ -150,25 +155,37 @@ requires |arr| == |outarr|
   forall k :: 0 <= k < i ==> outarr[k] == arr[|arr|-1-k]
 }
 
-method reverse<T>(line: seq<seq<T>>) returns (r: seq<seq<T>>)
+method  reverse<T>(line: seq<seq<T>>) returns (r: seq<seq<T>>)
   requires |line| > 0;
   ensures |line| == |r| && reversed(line, r);
+  ensures r[..|r|] == r
+  ensures LengthSum(r) == LengthSum(line)
 {
   //r := new array[line.Length](i requires 0 <= i < line.Length reads line => line[i]);
   r := line;
   var i := 0;
   var l : int := |line|- 1;
+  var sumNew, sumOld := 0, 0;
 
    while i < |line|
     invariant  0 <= i <= |line|
     invariant |r| == |line|
     invariant reversing(line, r, i) 
+    invariant LengthSum(r[..i]) == LengthSum(line[|line| - i..])
     decreases |line|-i
   {
     //r[i] := line[|line|-1-i];
+
     r := r[i:=line[|line|-1-i]];
+
+    assert r[i] == line[|line|-1-i];
+
     i := i + 1;
+    Sum(line[|line| - i..], r[..i]);
+
   } 
+  }
+  */
 }
 
 
@@ -207,6 +224,20 @@ method  {:main} Main(ghost env: HostEnvironment?)
   requires env.constants.CommandLineArgs()[1] in env.files.state() && |env.files.state()[env.constants.CommandLineArgs()[1]]|>0
   modifies env.ok
   modifies env.files
+  ensures var args := old(env.constants.CommandLineArgs());
+    env.ok != null && env.ok.ok() && |args| == 3 && args[1] in old(env.files.state()) && args[2] !in old(env.files.state())
+   
+    ==> 
+    args[2] in env.files.state()
+     && |old(env.files.state())[args[1]]| == |env.files.state()[args[2]]| 
+    && |env.files.state()[args[2]]| > 0 && |old(env.files.state())[args[1]]| > 0
+    && reversed( 
+      lines(
+        old(env.files.state())[args[1]]
+        ),
+      lines(
+        env.files.state()[args[2]])
+      )
   //ensures env.ok.ok() ==> reversed(lines(env.files.state()[env.constants.CommandLineArgs()[1]])
   //    	            ,lines(env.files.state()[env.constants.CommandLineArgs()[2]]))
  // ensures env.ok.ok() ==> env.constants.CommandLineArgs()[1] in env.files.state()
@@ -273,28 +304,27 @@ method  {:main} Main(ghost env: HostEnvironment?)
     }
     
     /*
-    if buffer.Length == 0 {
-      return;
-    } 
-    */
-    
     var newlineCount := countItem(buffer, 10);
     var lastIsNewline := buffer[buffer.Length - 1] == 10;
     if newlineCount == 0 || !lastIsNewline {
       return;
     }
-
+    */
     print buffer[..], "-buffer-\n";
     //Split file into array by \n 
     var split := splitArrayBy(buffer, 10);
     //Reverse array
+    //assert LengthSum(split) == buffer.Length;
     print split, "-split-\n";
     var reverse := reverse(split);
+    assert LengthSum(reverse) == LengthSum(split);
     print reverse, "-reversed-\n";
     //Flatt the array into a sequence of bytes
     var f := Flatten(reverse);
+    //assert |f| == LengthSum(reverse);
     var flat := ArrayFromSeq(f);
-
+    //assert |f| == |buffer[..]|;
+    //assert flat.Length == buffer.Length;
     var t := 0;
     var ofs; 
     ok, ofs := FileStream.Open(dstFile, env);
@@ -304,13 +334,14 @@ method  {:main} Main(ghost env: HostEnvironment?)
     }
   
     // o dafny queixa-se se eu meter simplesmente flat.Length pq é int e ele quer int32.. n consegui arranjar solução bonita
-    var start;
+    /*var start;
     if -0x80000000 <= flat.Length < 0x80000000 {
       start := flat.Length as int32;
     } else { return; }
-
-   
-    ok := ofs.Write(0, flat, 0, start);
+    assert start > 0;
+    
+    */
+    ok := ofs.Write(0, flat, 0, len);
     if !ok {
       print "Problems writing to out file '"; print dstFile; print "'\n";
       return;
@@ -321,6 +352,7 @@ method  {:main} Main(ghost env: HostEnvironment?)
       print "Problems closing out file '"; print dstFile; print "'\n";
       return;
     }
+    assert ok ==> dstFile[..] in env.files.state();
 
     /*
     assert |env.constants.CommandLineArgs()| == 3 ==> env.constants.CommandLineArgs()[1] == srcFile[..];
@@ -336,19 +368,21 @@ method  {:main} Main(ghost env: HostEnvironment?)
       	            ,lines(env.files.state()[env.constants.CommandLineArgs()[2]]));
     
       */
-
-      /*
+    
+    /*
     assert |env.constants.CommandLineArgs()| == 3 
       &&   env.constants.CommandLineArgs()[1] in env.files.state()
       &&   env.constants.CommandLineArgs()[2] in env.files.state()
       &&   |env.files.state()[env.constants.CommandLineArgs()[1]]| > 0
       &&   |env.files.state()[env.constants.CommandLineArgs()[2]]| > 0
       &&   |env.files.state()[env.constants.CommandLineArgs()[1]]| == |env.files.state()[env.constants.CommandLineArgs()[2]]|
-      &&
-      reversed(lines(env.files.state()[env.constants.CommandLineArgs()[1]])
-      	            ,lines(env.files.state()[env.constants.CommandLineArgs()[2]]));
+      &&   |env.files.state()[srcFile[..]]| == |env.files.state()[dstFile[..]]|
+      
+     // reversed(lines(env.files.state()[env.constants.CommandLineArgs()[1]])
+      //	            ,lines(env.files.state()[env.constants.CommandLineArgs()[2]]));
+      && reversed( lines( env.files.state()[srcFile[..]]), 
+                   lines( env.files.state()[dstFile[..]]));
    */
-   
     print "Reversal successfull\n";
     print "'"; print srcFile[..]; print "' -> '"; print dstFile[..]; print "'\n";
 }
