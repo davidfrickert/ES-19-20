@@ -5,7 +5,7 @@
 
 **Table of Contents**
 
-- [Dafny - Program Verification Project](#dafny---program-verification-project)
+- [Dafny - Software Specification Project 19/20](#dafny---software-specification-project-19-20)
 - [Intro](#intro)
 - [Reverse a file](#reverse-a-file)
 - [Pattern matching](#pattern-matching)
