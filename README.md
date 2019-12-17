@@ -65,4 +65,20 @@ To prove the 2<sup>nd</sup> property, as we only append to the index sequence if
 There is an interesting extra to this challenge, which is instead of returning matching indexes, we return the lines of the file that match the query.
 For this, specification-wise, we should aim to verify that all the returned lines contain atleast one match.
 Since Dafny doesn't support pretty colour printing we chose not to try to highlight the matches and just display the lines. Initially we tried to do something like inserting some characters to highlight but as that introduced some problems we chose to go for a simpler way.
+
+Example of execution:
+
+```
+Word
+aabca
+aba
+aabcd
+
+Query
+abc
+
+Matching lines
+aabca
+aabcd
+```
 # Conclusion / Problems Faced
