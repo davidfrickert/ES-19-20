@@ -184,9 +184,8 @@ requires word.Length >= pattern.Length
 decreases *
 ensures |indexes| >= 0
 ensures forall k :: 0 <= k < |indexes| ==>indexes[k]+pattern.Length <= word.Length
+ensures forall k :: 0 <= k < |indexes| && found ==> MatchesAtIndex(word, pattern, indexes[k]) && AnyMatch(word, pattern)
 ensures forall k :: 0 <= k < |indexes| && |indexes| > 0 ==> word[indexes[k]..indexes[k]+pattern.Length] == pattern[0..pattern.Length]
-ensures forall k :: 0 <= k < |indexes| ==> MatchesAtIndex(word, pattern, indexes[k])
-ensures found ==> AnyMatch(word, pattern)
 
 {
 
@@ -202,7 +201,7 @@ ensures found ==> AnyMatch(word, pattern)
   invariant forall i :: 0 <= i < |indexes| ==> indexes[i] + pattern.Length <= word.Length
   //
   invariant k == pattern.Length ==> word[indexes[|indexes|-1]..(j-k)+pattern.Length] == pattern[0..pattern.Length] && (j-k) in indexes
-  invariant k == pattern.Length ==> MatchesAtIndex(word, pattern, j-k) && AnyMatch(word, pattern) && (j-k) in indexes
+  invariant k == pattern.Length && found ==> MatchesAtIndex(word, pattern, j-k) && AnyMatch(word, pattern) && (j-k) in indexes
   decreases *
 //  decreases word.Length - j, pattern.Length - table[k], pattern.Length - k
   {
@@ -266,7 +265,6 @@ ensures pattern.Length == table.Length
 ensures forall i:: 0 <= i < table.Length ==> 0 <= table[i] < pattern.Length
 ensures forall i:: 0 <= i < table.Length ==> i-table[i] >= 0
 ensures forall i:: 1 < i <= table.Length && table[i-1]>0 && (i-1)-(table[i-1]+1)>=0 ==> pattern[0..table[i-1]] == pattern[(i-1)-(table[i-1]+1)..i]
-ensures forall i:: 1 < i <= table.Length && table[i-1]>0 && (i-2)-table[i-1]>=0 ==> pattern[0..table[i-1]] == pattern[i-2-table[i-1]..i-1]
 ensures forall i :: 0 <= i < table.Length ==> CheckTable(pattern, i, table[i])
 {
 
@@ -293,9 +291,6 @@ ensures forall i :: 0 <= i < table.Length ==> CheckTable(pattern, i, table[i])
   //3- After entry if value of table is j+1(>=1), then the respective subsstring is equal to the respective start of the pattern
   invariant i>1 && table[i-1] == j-1 && (i-1)-(table[i-1]+1)>=0 ==> pattern[0..j-1] == pattern[(i-1)-(table[i-1]+1)..i]
   invariant i>1 && table[i-1] == 0 && (i-1)-(table[i-1]+1)>=0 ==> pattern[0..table[i-1]] != pattern[(i-1)-(table[i-1]+1)..i]
-  //invariant i>1 && j == table[i-1]
-  invariant i>1 && table[i-1] == j+1 && i-2-table[i-1]>=0 ==> pattern[i-1] == pattern[j] ==> pattern[0..j+1] == pattern[i-2-j+1..i-1]
-  invariant i>1 && table[i-1] == 0 && i-2-table[i-1]>=0 ==> pattern[0..table[i-1]] != pattern[i-2-table[i-1]..i-1]
 
   {
     var index := i - 1;
