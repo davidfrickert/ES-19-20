@@ -37,6 +37,7 @@ The properties we need to maintain are then:
 	* The reversed lines being returned are actually the reverse of the original lines 
 	* The sum of the lengths of the reversed lines is the same as the sum of the lengths of the original lines
 * For the file writing
+	* The output file exists 
 	* The output file contains the same number of bytes as the input file
 	* The output file is actually the reverse of the input file
 
@@ -102,7 +103,8 @@ Since the line `aba` doesn't contain the query, it is not part of the matching l
 After finishing this project we got a better insight on the topics of program verification and writing specifications that fulfill the requirements.
 We wrote code that the compiler can prove that maintains some properties that will ensure that the specification is not being violated, by using some formal logic concepts.\
 This isn't always easy as it requires functional thinking which sometimes isn't very easy for developers used to only OOP.\
-Another problem is that Dafny is quite an experimental tool and sometimes programs a bit more complex (like programs dealing with files like our reverse) can take long time to verify or even time out because the verifier wasn't able to prove all the proof obligations of the program, which was our case for a long part of the project, which we managed to solve partially, probably by reducing the complexity of the properties our methods were ensuring.
+Another problem is that Dafny is quite an experimental tool and sometimes programs a bit more complex (like programs dealing with files like our reverse) can take long time to verify or even time out because the verifier wasn't able to prove all the proof obligations of the program, which was our case for a long part of the project.\
+We managed to solve some problems partially, probably by reducing the complexity of the properties our methods were ensuring.
 
 # Authors
 * David Frickert - 97033
