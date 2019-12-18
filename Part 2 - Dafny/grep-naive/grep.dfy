@@ -309,6 +309,8 @@ method {:main} Main(ghost env:HostEnvironment?)
         print rst[l][..]; 
         l := l + 1;
       }
+    } else {
+        print "Query not found in any line\n";
     }
 
 }

@@ -177,22 +177,22 @@ ensures forall k :: 0 <= k < |indexes| && |indexes| > 0 ==> word[indexes[k]..ind
 
 }
 
-method {:verify false} KMPEasy(word: array<char>, pattern: array<char>) returns (found: bool, indexes: seq<nat>)
+method KMPSearch(word: array<char>, pattern: array<char>) returns (found: bool, indexes: seq<nat>)
 requires word.Length > 0
 requires pattern.Length > 0
 requires word.Length >= pattern.Length
 decreases *
 ensures |indexes| >= 0
 ensures forall k :: 0 <= k < |indexes| ==>indexes[k]+pattern.Length <= word.Length
-ensures forall k :: 0 <= k < |indexes| && found ==> MatchesAtIndex(word, pattern, indexes[k]) && AnyMatch(word, pattern)
+ensures forall k :: 0 <= k < |indexes| ==> MatchesAtIndex(word, pattern, indexes[k]) && AnyMatch(word, pattern)
+ensures found ==> AnyMatch(word, pattern)
 ensures forall k :: 0 <= k < |indexes| && |indexes| > 0 ==> word[indexes[k]..indexes[k]+pattern.Length] == pattern[0..pattern.Length]
 
 {
 
   var j, k := 0, 0;
-  var table := KMPTableEasy(pattern);
+  var table := KMPTable(pattern);
   indexes := [];
-  print table[..], "\n";
 
   while j < word.Length 
   //Boundaries of the variables in the loop
@@ -260,7 +260,7 @@ reads ptn
 //And that given a value bigger than 0, the start of the pattern is equal to the previous substring at a certain point
 //Notes: 1- defined boundaries like 1<i<=table.Length may seem that we ignore table[1], but in reality we use i-1, so we check from 1 to pattern-Length-1
 //2-Trigger warning and post condition might not hold even though the invariants are accepted
-method KMPTableEasy(pattern: array<char>) returns (table: array<int>) 
+method {:verify false} KMPTable(pattern: array<char>) returns (table: array<int>) 
 requires pattern.Length > 0
 ensures pattern.Length == table.Length
 ensures forall i:: 0 <= i < table.Length ==> 0 <= table[i] < pattern.Length
@@ -322,7 +322,7 @@ ensures forall i :: 0 <= i < table.Length ==> CheckTable(pattern, i, table[i])
   }
 }
 
-method BashGrep(word: array<char>, query: array<char>) returns (found: bool, lines: seq<array<char>>)
+method {:verify false} BashGrep(word: array<char>, query: array<char>) returns (found: bool, lines: seq<array<char>>)
 requires word.Length > 0
 requires query.Length > 0
 requires word.Length >= query.Length
@@ -342,7 +342,7 @@ decreases *
   {
     var cur := all[line];
     if cur.Length >= query.Length {
-      found, indexes := KMPEasy(cur, query);
+      found, indexes := KMPSearch(cur, query);
       if found {
         //assert forall k :: 0 <= k < |indexes| ==> MatchesAtIndex(cur, query, indexes[k]);
         lines := lines + [cur];
@@ -435,8 +435,6 @@ method {:main} Main(ghost env:HostEnvironment?)
       return;
     }
   
-    //var found, rst := KMPEasy(word, query);
-    // print rst;
     var found, rst := BashGrep(word, query);
     
     if found {
@@ -447,7 +445,9 @@ method {:main} Main(ghost env:HostEnvironment?)
       {
         print rst[l][..]; 
         l := l + 1;
-      }
+      } 
+    } else {
+        print "Query not found in any line\n";
     }
     
    
