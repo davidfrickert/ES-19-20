@@ -14,6 +14,67 @@ method ArrayFromSeq<T>(s: seq<T>) returns (a: array<T>)
   a := new T[|s|] ( i requires 0 <= i < |s| => s[i] );
 }
 
+function countF<T>(items: seq<T>, item: T): nat
+{
+  multiset(items)[item]
+}
+method countItem<T(==)>(arr: array<T>, item: T) returns (count: nat) 
+requires arr.Length > 0
+ensures count == countF(arr[0..arr.Length], item)
+{
+  var i := 0;
+  count := 0;
+
+  while (i < arr.Length) 
+  invariant i <= arr.Length && count == countF(arr[0..i], item) 
+  decreases arr.Length - i
+  {
+    if arr[i] == item {
+      count := count + 1;
+    }
+    i := i + 1;
+  }
+}
+method splitArrayBy<T(==)>(arr: array<T>, item: T) returns (a: array<array<T>>)
+requires arr.Length > 0
+ensures fresh(a) && a.Length > 0 && a.Length == countF(arr[0..arr.Length], item) + 1
+{
+  var from := 0;
+  var to := 0;
+  var l_cnt := 0;
+  var lines := countItem(arr, item);
+  lines := lines + 1;
+
+  if lines == 0 {
+    return new array<T>[1] (_ => arr);
+  }
+
+  a := new array<T>[lines];
+
+  while(to < arr.Length && from < arr.Length && l_cnt < lines) 
+  decreases arr.Length - to
+  decreases arr.Length - from
+  invariant l_cnt <= lines && to + 1 > from
+  invariant to <= arr.Length && from <= arr.Length
+  invariant a.Length == countF(arr[0..arr.Length], item) + 1
+  {
+    if (arr[to] == item){
+      a[l_cnt] := ArrayFromSeq(arr[from..to + 1]);
+      l_cnt := l_cnt + 1;
+      from := to + 1;
+    }
+    if(l_cnt == lines-1 && to == arr.Length-1 ){
+      var tmp := [];
+      var n := [item];
+      tmp := arr[from..] + n;
+      a[l_cnt] := ArrayFromSeq(tmp);
+      l_cnt := l_cnt + 1;
+    } 
+    to := to + 1;
+  }
+}
+
+
 method CastArray(a: array<byte>) returns (chars: array<char>)
 requires a.Length > 0
 ensures fresh(chars)
@@ -78,7 +139,6 @@ ensures forall k :: 0 <= k < |indexes| ==>indexes[k]+pattern.Length <= word.Leng
 
   var j, k := 0, 0;
   var table := KMPTable(pattern);
-  print table[..], "\n";
   indexes := [];
 
   while j < word.Length 
@@ -166,20 +226,21 @@ ensures forall k :: 0 <= k < |indexes| && |indexes| > 0 ==> word[indexes[k]..ind
 
 }
 
-method  KMPEasy(word: array<char>, pattern: array<char>) returns (found: bool, indexes: seq<nat>)
+method KMPEasy(word: array<char>, pattern: array<char>) returns (found: bool, indexes: seq<nat>)
 requires word.Length > 0
 requires pattern.Length > 0
 requires word.Length >= pattern.Length
 decreases *
 ensures |indexes| >= 0
 ensures forall k :: 0 <= k < |indexes| ==>indexes[k]+pattern.Length <= word.Length
-//ensures forall k :: 0 <= k < |indexes| && |indexes| > 0 ==> word[indexes[k]..indexes[k]+pattern.Length] == pattern[0..pattern.Length]
-//ensures forall k :: 0 <= k < |indexes| ==> MatchesAtIndex(word, pattern, indexes[k])
+ensures forall k :: 0 <= k < |indexes| && |indexes| > 0 ==> word[indexes[k]..indexes[k]+pattern.Length] == pattern[0..pattern.Length]
+ensures forall k :: 0 <= k < |indexes| ==> MatchesAtIndex(word, pattern, indexes[k])
+ensures found ==> AnyMatch(word, pattern)
+
 {
 
   var j, k := 0, 0;
   var table := KMPTableEasy(pattern);
-  print table[..], "\n";
   indexes := [];
 
   while j < word.Length 
@@ -195,24 +256,24 @@ ensures forall k :: 0 <= k < |indexes| ==>indexes[k]+pattern.Length <= word.Leng
   decreases *
 //  decreases word.Length - j, pattern.Length - table[k], pattern.Length - k
   {
-    if k < pattern.Length{
+    
       if word[j] == pattern[k]
       {
         j := j + 1;
         k := k + 1;
-
         if k == pattern.Length {
+         found := true;
          indexes := indexes + [j - k];
          k := table[k - 1];
        }
-    } else {
+     } else {
         if k != 0 {
           k := table[k - 1];
         } else {
           j := j + 1;
         }
     }
-    }
+    
   }
 }
 
@@ -233,24 +294,6 @@ predicate ValueBelowIndex(a: array<int>)
 reads a
 {
   forall i :: 0 <= i < a.Length ==> a[i] < i
-}
-
-
-
-function method VerifyTable(ptn: array<char>, lower: int, upper:int): int
-reads ptn
-decreases {ptn}, ptn, lower, upper
-requires ptn.Length > 0
-requires 0 <= lower < upper < ptn.Length
-{
-  if (upper - lower == 1 && ptn[upper] == ptn[0]) then -1
-  else
-    if IsSubsequence(ptn[..lower], ptn[lower..upper]) 
-      then 
-        if lower > 0 
-          then 1 + VerifyTable(ptn, lower - 1, upper)
-        else 1
-    else 0
 }
 
 predicate  CheckTable(ptn: array<char>, index: nat, score: nat) 
@@ -313,9 +356,10 @@ ensures forall i :: 0 <= i < table.Length && table[i]>0 ==> pattern[0..table[i]]
 method KMPTableEasy(pattern: array<char>) returns (table: array<int>) 
 requires pattern.Length > 0
 ensures pattern.Length == table.Length
-ensures forall i:: 0 <= i < table.Length ==> table[i] < pattern.Length
+ensures forall i:: 0 <= i < table.Length ==> 0 <= table[i] < pattern.Length
 ensures forall i:: 0 <= i < table.Length ==> i-table[i] >= 0
 ensures forall i:: 1 < i <= table.Length && table[i-1]>0 && (i-2)-table[i-1]>=0 ==> pattern[0..table[i-1]] == pattern[i-2-table[i-1]..i-1]
+ensures forall i :: 0 <= i < table.Length ==> CheckTable(pattern, i, table[i])
 {
 
   table := new int[pattern.Length] (_ => 0);
@@ -333,17 +377,26 @@ ensures forall i:: 1 < i <= table.Length && table[i-1]>0 && (i-2)-table[i-1]>=0 
   invariant forall i:: 0 <= i < table.Length ==> i-table[i] >= 0
   invariant   i>1 && table[i-1] == j+1 ==> pattern[i-1] == pattern[j]
   invariant j==0 && pattern[j] != pattern[i-1]==> table[i-1] == 0
-  invariant i>1 && j == table[i-1]
+  //invariant i>1 && j == table[i-1]
   invariant i>1 && table[i-1] == j+1 && i-2-table[i-1]>=0 ==> pattern[i-1] == pattern[j] ==> pattern[0..j+1] == pattern[i-2-j+1..i-1]
   invariant i>1 && table[i-1] == 0 && i-2-table[i-1]>=0 ==> pattern[0..table[i-1]] != pattern[i-2-table[i-1]..i-1]
 
   //invariant  1 <= i < table.Length && table[i-1] == 0 && i-2-table[i-1]>=0 ==> pattern[0..table[i-1]] == pattern[i-2-table[i-1]..i-1]
   {
+    var index := i - 1;
+
     while j != 0 && pattern[j] != pattern[i]
-     invariant 0 <= j
-     invariant table[0] == 0
-     decreases if j <= 0 then 0 - j else j - 0
-    {
+      invariant 0 <= j
+      invariant table[0] == 0
+      decreases if j <= 0 then 0 - j else j - 0
+      invariant j <= i
+      //invariant forall v :: 0 <= v < i < table.Length ==> table[v] <= v
+      invariant forall v :: 0 <= v < i < table.Length ==> table[v] <= v && 0 <= table[v] < pattern.Length
+      invariant forall v :: 0 <= v < i < table.Length ==> 0 <= table[v] < pattern.Length
+      invariant 0 <= j < pattern.Length
+      invariant j <= index
+    {    
+      index := j - 1;
       j := table[j - 1];
     }
 
@@ -352,10 +405,42 @@ ensures forall i:: 1 < i <= table.Length && table[i-1]>0 && (i-2)-table[i-1]>=0 
     }
     
     table[i] := j;
+
     i := i + 1;
   }
 }
 
+method BashGrep(word: array<char>, query: array<char>) returns (found: bool, lines: seq<array<char>>)
+requires word.Length > 0
+requires query.Length > 0
+requires word.Length >= query.Length
+ensures forall k :: 0 <= k < |lines| ==> lines[k].Length >= query.Length
+ensures forall k :: 0 <= k < |lines| ==> AnyMatch(lines[k], query)
+decreases *
+{
+  var indexes;
+  var all := splitArrayBy(word, '\n');
+  var line := 0;
+  lines := [];
+
+  while line < all.Length 
+  invariant forall i :: 0 <= i < |lines| ==> lines[i].Length >= query.Length
+  invariant forall i :: 0 <= i < |lines| ==> AnyMatch(lines[i], query)
+  decreases *
+  {
+    var cur := all[line];
+    if cur.Length >= query.Length {
+      found, indexes := KMPEasy(cur, query);
+      if found {
+        //assert forall k :: 0 <= k < |indexes| ==> MatchesAtIndex(cur, query, indexes[k]);
+        lines := lines + [cur];
+      }
+    }
+    line := line + 1;
+  }
+  if |lines|>0 { found := true; }
+ 
+}
 
 method {:main} Main(ghost env:HostEnvironment?)
   requires env != null && env.Valid() && env.ok.ok();
@@ -438,10 +523,22 @@ method {:main} Main(ghost env:HostEnvironment?)
       return;
     }
   
-    var found, rst := KMPEasy(word, query);
-  
+    //var found, rst := KMPEasy(word, query);
+    // print rst;
+    var found, rst := BashGrep(word, query);
     
-    print rst;
+    if found {
+      print "Matching lines\n";
+      var l := 0;
+      while l < |rst| 
+      decreases|rst| - l
+      {
+        print rst[l][..]; 
+        l := l + 1;
+      }
+    }
+    
+   
     
 
 }

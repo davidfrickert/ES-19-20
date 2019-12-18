@@ -246,8 +246,8 @@ method  {:main} Main(ghost env: HostEnvironment?)
    
     ==> 
     args[2] in env.files.state()
-     && |old(env.files.state())[args[1]]| == |env.files.state()[args[2]]| 
-    && |env.files.state()[args[2]]| > 0 && |old(env.files.state())[args[1]]| > 0
+  //&& |old(env.files.state())[args[1]]| == |env.files.state()[args[2]]| 
+   // && |env.files.state()[args[2]]| > 0 && |old(env.files.state())[args[1]]| > 0
     && reversed( 
       lines(
         old(env.files.state())[args[1]]
@@ -329,21 +329,21 @@ method  {:main} Main(ghost env: HostEnvironment?)
     }
     */
     print buffer[..], "-buffer-\n";
+    
     //Split file into array by \n 
     var split := splitArrayBy(buffer, 10);
+
     //Reverse array
-    //assert LengthSum(split) == buffer.Length;
     print split, "-split-\n";
     var reverse := reverse(split);
-    assert LengthSum(reverse) == LengthSum(split);
+
+    //assert reversed(split, reverse);
+
     print reverse, "-reversed-\n";
     //Flatt the array into a sequence of bytes
     var f := Flatten(reverse);
-    //assert |f| == LengthSum(reverse);
     var flat := ArrayFromSeq(f);
-    //assert |f| == |buffer[..]|;
-    //assert flat.Length == buffer.Length;
-    var t := 0;
+
     var ofs; 
     ok, ofs := FileStream.Open(dstFile, env);
     if !ok {

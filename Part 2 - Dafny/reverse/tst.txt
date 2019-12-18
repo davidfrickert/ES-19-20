@@ -1,4 +1,0 @@
-hello im diogo
-this is a text
-that will
-be reversed 
