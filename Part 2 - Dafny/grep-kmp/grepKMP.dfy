@@ -177,7 +177,7 @@ ensures forall k :: 0 <= k < |indexes| && |indexes| > 0 ==> word[indexes[k]..ind
 
 }
 
-method KMPEasy(word: array<char>, pattern: array<char>) returns (found: bool, indexes: seq<nat>)
+method {:verify false} KMPEasy(word: array<char>, pattern: array<char>) returns (found: bool, indexes: seq<nat>)
 requires word.Length > 0
 requires pattern.Length > 0
 requires word.Length >= pattern.Length
@@ -192,6 +192,7 @@ ensures forall k :: 0 <= k < |indexes| && |indexes| > 0 ==> word[indexes[k]..ind
   var j, k := 0, 0;
   var table := KMPTableEasy(pattern);
   indexes := [];
+  print table[..], "\n";
 
   while j < word.Length 
   //Boundaries of the variables in the loop
