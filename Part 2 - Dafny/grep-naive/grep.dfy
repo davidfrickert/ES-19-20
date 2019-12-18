@@ -208,12 +208,13 @@ ensures forall k :: 0 <= k < |lines| ==> AnyMatch(lines[k], query)
     if cur.Length >= query.Length {
       found, indexes := GrepNaive(cur, query);
       if found {
-        assert forall k :: 0 <= k < |indexes| ==> MatchesAtIndex(cur, query, indexes[k]);
+        //assert forall k :: 0 <= k < |indexes| ==> MatchesAtIndex(cur, query, indexes[k]);
         lines := lines + [cur];
       }
     }
     line := line + 1;
   }
+  if |lines|>0 { found := true; }
  
 }
 
@@ -298,7 +299,7 @@ method {:main} Main(ghost env:HostEnvironment?)
     }
   
     var found, rst := BashGrep(word, query);
-
+    
     if found {
       print "Matching lines\n";
       var l := 0;

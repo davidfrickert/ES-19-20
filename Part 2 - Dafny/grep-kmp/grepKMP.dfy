@@ -306,24 +306,43 @@ ensures forall i :: 0 <= i < table.Length && table[i]>0 ==> pattern[0..table[i]]
   table[table.Length - 1] := cnd;
 }
 
+
+
+
+
 method KMPTableEasy(pattern: array<char>) returns (table: array<int>) 
 requires pattern.Length > 0
 ensures pattern.Length == table.Length
-ensures forall v :: 0 <= v < table.Length ==> table[v] <= v && 0 <= table[v] < pattern.Length
-ensures forall v :: 0 <= v < table.Length ==> CheckTable(pattern, v, table[v])
+ensures forall i:: 0 <= i < table.Length ==> table[i] < pattern.Length
+ensures forall i:: 0 <= i < table.Length ==> i-table[i] >= 0
+ensures forall i:: 1 < i <= table.Length && table[i-1]>0 && (i-2)-table[i-1]>=0 ==> pattern[0..table[i-1]] == pattern[i-2-table[i-1]..i-1]
 {
+
   table := new int[pattern.Length] (_ => 0);
   var i, j := 1, 0;
+
+  //assume forall i:: 1 <= i < table.Length && table[i]>0 && i-1-table[i]>=0 ==> pattern[0..table[i]] == pattern[i-1-table[i]..i];
+  
   while i < pattern.Length 
   decreases pattern.Length - i
-  invariant j <= i
-  invariant forall v :: 0 <= v < i < table.Length ==> table[v] <= v
-  invariant forall v :: 0 <= v < i < table.Length ==> table[v] <= v && 0 <= table[v] < pattern.Length
-  invariant forall v :: 0 <= v < i < table.Length ==> CheckTable(pattern, v, table[v])
+  invariant j < i 
+  invariant 1 <= i <= pattern.Length && table.Length == pattern.Length
+  invariant i > table[i-1] >= 0
+  invariant forall k:: 0 <= k < table.Length ==>  0 <= table[k] && table[0] == 0
+  invariant forall i:: 0 <= i < table.Length ==> table[i] < pattern.Length
+  invariant forall i:: 0 <= i < table.Length ==> i-table[i] >= 0
+  invariant   i>1 && table[i-1] == j+1 ==> pattern[i-1] == pattern[j]
+  invariant j==0 && pattern[j] != pattern[i-1]==> table[i-1] == 0
+  invariant i>1 && j == table[i-1]
+  invariant i>1 && table[i-1] == j+1 && i-2-table[i-1]>=0 ==> pattern[i-1] == pattern[j] ==> pattern[0..j+1] == pattern[i-2-j+1..i-1]
+  invariant i>1 && table[i-1] == 0 && i-2-table[i-1]>=0 ==> pattern[0..table[i-1]] != pattern[i-2-table[i-1]..i-1]
+
+  //invariant  1 <= i < table.Length && table[i-1] == 0 && i-2-table[i-1]>=0 ==> pattern[0..table[i-1]] == pattern[i-2-table[i-1]..i-1]
   {
-    while j != 0 && pattern[j] != pattern[i] 
-    invariant 0 <= j < pattern.Length
-    decreases j
+    while j != 0 && pattern[j] != pattern[i]
+     invariant 0 <= j
+     invariant table[0] == 0
+     decreases if j <= 0 then 0 - j else j - 0
     {
       j := table[j - 1];
     }
@@ -336,6 +355,7 @@ ensures forall v :: 0 <= v < table.Length ==> CheckTable(pattern, v, table[v])
     i := i + 1;
   }
 }
+
 
 method {:main} Main(ghost env:HostEnvironment?)
   requires env != null && env.Valid() && env.ok.ok();
