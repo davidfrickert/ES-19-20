@@ -65,57 +65,7 @@ reads word, query
   exists i :: 0 <= i <= word.Length - query.Length && MatchesAtIndex(word, query, i)
 }
 
-method {:verify false} KMPSearch(word: array<char>, pattern: array<char>) returns (found: bool, indexes: seq<nat>)
-requires word.Length > 0
-requires pattern.Length > 0
-requires word.Length >= pattern.Length
-decreases *
-ensures |indexes| >= 0
-ensures forall k :: 0 <= k < |indexes| ==>indexes[k]+pattern.Length <= word.Length
-//ensures forall k :: 0 <= k < |indexes| && |indexes| > 0 ==> word[indexes[k]..indexes[k]+pattern.Length] == pattern[0..pattern.Length]
-//ensures forall k :: 0 <= k < |indexes| ==> MatchesAtIndex(word, pattern, indexes[k])
-{
 
-  var j, k := 0, 0;
-  var table := KMPTable(pattern);
-  print table[..], "\n";
-  indexes := [];
-
-  while j < word.Length 
-  invariant ValueBelowIndex(table)
-  invariant forall i :: 0 <= i < table.Length ==> -1 <= table[i] < pattern.Length
-  invariant 0 <= k < pattern.Length && k<=j && 0 <= j <= word.Length
-  invariant forall m :: 0 <= m < |indexes| ==> indexes[m] + pattern.Length <= word.Length
-  invariant k >= pattern.Length ==> word[indexes[|indexes|-1]..(j-k)+pattern.Length] == pattern[0..pattern.Length] && (j-k) in indexes
-  invariant k == pattern.Length ==> MatchesAtIndex(word, pattern, j-k) && AnyMatch(word, pattern) && (j-k) in indexes
- // invariant ((j-k) in indexes) ==> pattern[0..pattern.Length] == word[(j-k)..(j-k)+pattern.Length]
-//  invariant forall i :: 0 <= i < |indexes| ==> MatchesAtIndex(word, pattern, indexes[i])
-  invariant MatchesUpToN(word, pattern, j - k, k)
-  decreases *
-//  decreases word.Length - j, pattern.Length - table[k], pattern.Length - k
-  {
-    if k < pattern.Length{
-      if word[j] == pattern[k]
-      {
-        j := j + 1;
-        k := k + 1;
-
-        if k == pattern.Length {
-         indexes := indexes + [j - k];
-         k := table[k];
-       }
-    } else {
-        k := table[k];
-
-        if k == -1 {
-          j := j + 1;
-          k := k + 1;
-        }
-    }
-    }
-  }
-}
-  
 method KMPnoTable(word: array<char>, pattern: array<char>) returns (found: bool, indexes: seq<nat>)
 requires word.Length > 0
 requires pattern.Length > 0
@@ -172,8 +122,8 @@ requires pattern.Length > 0
 requires word.Length >= pattern.Length
 decreases *
 ensures |indexes| >= 0
-ensures forall k :: 0 <= k < |indexes| ==>indexes[k]+pattern.Length <= word.Length
-//ensures forall k :: 0 <= k < |indexes| && |indexes| > 0 ==> word[indexes[k]..indexes[k]+pattern.Length] == pattern[0..pattern.Length]
+ensures forall k :: 0 <= k < |indexes| ==>  indexes[k]+pattern.Length <= word.Length
+ensures forall k :: 0 <= k < |indexes| && |indexes| > 0 ==> word[indexes[k]..indexes[k]+pattern.Length] == pattern[0..pattern.Length]
 //ensures forall k :: 0 <= k < |indexes| ==> MatchesAtIndex(word, pattern, indexes[k])
 {
 
@@ -183,15 +133,14 @@ ensures forall k :: 0 <= k < |indexes| ==>indexes[k]+pattern.Length <= word.Leng
   indexes := [];
 
   while j < word.Length 
-  //invariant ValueBelowIndex(table)
-  invariant forall i :: 0 <= i < table.Length ==> -1 <= table[i] < pattern.Length
+  //Boundaries of the variables in the loop
+  invariant forall i :: 0 <= i < table.Length ==> 0 <= table[i] < pattern.Length
   invariant 0 <= k < pattern.Length && k<=j && 0 <= j <= word.Length
-  invariant forall m :: 0 <= m < |indexes| ==> indexes[m] + pattern.Length <= word.Length
-  invariant k >= pattern.Length ==> word[indexes[|indexes|-1]..(j-k)+pattern.Length] == pattern[0..pattern.Length] && (j-k) in indexes
+  //An index of the start of the pattern + the pattern size cannot be bigger than the length of the sentence(word)
+  invariant forall i :: 0 <= i < |indexes| ==> indexes[i] + pattern.Length <= word.Length
+  //
+  invariant k == pattern.Length ==> word[indexes[|indexes|-1]..(j-k)+pattern.Length] == pattern[0..pattern.Length] && (j-k) in indexes
   invariant k == pattern.Length ==> MatchesAtIndex(word, pattern, j-k) && AnyMatch(word, pattern) && (j-k) in indexes
- // invariant ((j-k) in indexes) ==> pattern[0..pattern.Length] == word[(j-k)..(j-k)+pattern.Length]
-//  invariant forall i :: 0 <= i < |indexes| ==> MatchesAtIndex(word, pattern, indexes[i])
-  invariant MatchesUpToN(word, pattern, j - k, k)
   decreases *
 //  decreases word.Length - j, pattern.Length - table[k], pattern.Length - k
   {
@@ -261,83 +210,44 @@ reads ptn
 }
 
 
-method {:verify false} KMPTable(pattern: array<char>) returns (table: array<int>)
-requires pattern.Length > 0
-ensures table.Length == pattern.Length + 1
-ensures fresh(table)
-ensures ValueBelowIndex(table)
-ensures table[table.Length - 1] >= 0 && table[0] == -1
-ensures forall i :: 0 <= i < table.Length ==> -1 <= table[i] <= pattern.Length
-ensures forall i :: 0 <= i < table.Length && table[i]>0 ==> pattern[0..table[i]] == pattern[i-table[i]..i] 
-{
-  var pos, cnd := 1, 0;
-  table := new int[pattern.Length + 1] (_ => 0);
-  table[0] := -1;
-
-
-  while pos < pattern.Length && cnd < pattern.Length - 1
-  invariant forall i :: 0 <= i < table.Length ==> -1 <= table[i] <= pattern.Length
-  invariant 0 <= cnd <= pattern.Length - 1
-  invariant  1 <= pos <= pattern.Length
-  invariant pos > cnd
-  invariant ValueBelowIndex(table)
- // invariant table[pos] > 1 && 1 <= pos < pattern.Length && pattern[pos] == pattern[cnd] ==> table[pos] == table[cnd]
-  invariant table[pos] > 0 ==> pattern[0..table[pos]] == pattern[pos-table[pos]..pos]
-  decreases pattern.Length - pos
-
-  { 
-    if pattern[pos] == pattern[cnd] {
-      table[pos] := table[cnd];
-    } else {
-      table[pos] := cnd;
-      cnd := table[cnd];
-
-      while cnd >= 0 && pattern[pos] != pattern[cnd] 
-      invariant  -1 <= cnd <= pattern.Length
-      invariant 0 <= pos < pattern.Length
-      decreases cnd
-      {
-        cnd := table[cnd];
-      }
-    }
-    pos, cnd := pos + 1, cnd + 1;
-  }
-  
-  table[table.Length - 1] := cnd;
-}
-
-
-
-
-
+//Method that does the pre processing, it fills the table with the values of the equal substring
+//Requires that the pattern has at least a char
+//Ensures that the values are in the respective boundaries
+//And that given a value bigger than 0, the start of the pattern is equal to the previous substring at a certain point
+//Notes: 1- defined boundaries like 1<i<=table.Length may seem that we ignore table[1], but in reality we use i-1, so we check from 1 to pattern-Length-1
+//2-Trigger warning and post condition might not hold even though the invariants are accepted
 method KMPTableEasy(pattern: array<char>) returns (table: array<int>) 
 requires pattern.Length > 0
 ensures pattern.Length == table.Length
-ensures forall i:: 0 <= i < table.Length ==> table[i] < pattern.Length
+ensures forall i:: 0 <= i < table.Length ==> 0 <= table[i] < pattern.Length
 ensures forall i:: 0 <= i < table.Length ==> i-table[i] >= 0
-ensures forall i:: 1 < i <= table.Length && table[i-1]>0 && (i-2)-table[i-1]>=0 ==> pattern[0..table[i-1]] == pattern[i-2-table[i-1]..i-1]
+ensures forall i:: 1 < i <= table.Length && table[i-1]>0 && (i-1)-(table[i-1]+1)>=0 ==> pattern[0..table[i-1]] == pattern[(i-1)-(table[i-1]+1)..i]
 {
 
   table := new int[pattern.Length] (_ => 0);
   var i, j := 1, 0;
 
+
   //assume forall i:: 1 <= i < table.Length && table[i]>0 && i-1-table[i]>=0 ==> pattern[0..table[i]] == pattern[i-1-table[i]..i];
   
   while i < pattern.Length 
   decreases pattern.Length - i
+  //Boundary invariants, initial value is always 0 and remaining values of table can be from 0 to pattern.Length-1  
   invariant j < i 
   invariant 1 <= i <= pattern.Length && table.Length == pattern.Length
-  invariant i > table[i-1] >= 0
-  invariant forall k:: 0 <= k < table.Length ==>  0 <= table[k] && table[0] == 0
-  invariant forall i:: 0 <= i < table.Length ==> table[i] < pattern.Length
-  invariant forall i:: 0 <= i < table.Length ==> i-table[i] >= 0
+  invariant 0 <= table[i-1] <= i    
+  invariant table[0] == 0 && forall k:: 0 <= k < table.Length ==>  0 <= table[k] < pattern.Length
+  //Difference between i and the value of the table must inside of the pattern length
+  invariant forall i:: 0 <= i < table.Length ==> 0 <= i-table[i] < pattern.Length
+  //Table properties
+  //1-After entry, if the value table[i-1] is equal to j+1, it means that the char at pattern[i-1] is equal to the char at pattern[j]
   invariant   i>1 && table[i-1] == j+1 ==> pattern[i-1] == pattern[j]
+  //2-If j its 0, it means that the char at pattern[i-1] is not equal to the char at pattern[j]
   invariant j==0 && pattern[j] != pattern[i-1]==> table[i-1] == 0
-  invariant i>1 && j == table[i-1]
-  invariant i>1 && table[i-1] == j+1 && i-2-table[i-1]>=0 ==> pattern[i-1] == pattern[j] ==> pattern[0..j+1] == pattern[i-2-j+1..i-1]
-  invariant i>1 && table[i-1] == 0 && i-2-table[i-1]>=0 ==> pattern[0..table[i-1]] != pattern[i-2-table[i-1]..i-1]
+  //3- After entry if value of table is j+1(>=1), then the respective subsstring is equal to the respective start of the pattern
+  invariant i>1 && table[i-1] == j-1 && (i-1)-(table[i-1]+1)>=0 ==> pattern[0..j-1] == pattern[(i-1)-(table[i-1]+1)..i]
+  invariant i>1 && table[i-1] == 0 && (i-1)-(table[i-1]+1)>=0 ==> pattern[0..table[i-1]] != pattern[(i-1)-(table[i-1]+1)..i]
 
-  //invariant  1 <= i < table.Length && table[i-1] == 0 && i-2-table[i-1]>=0 ==> pattern[0..table[i-1]] == pattern[i-2-table[i-1]..i-1]
   {
     while j != 0 && pattern[j] != pattern[i]
      invariant 0 <= j
@@ -353,6 +263,7 @@ ensures forall i:: 1 < i <= table.Length && table[i-1]>0 && (i-2)-table[i-1]>=0 
     
     table[i] := j;
     i := i + 1;
+   
   }
 }
 
