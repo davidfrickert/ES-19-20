@@ -1,4 +1,4 @@
-# Dafny - Software Specification Project 19/20
+# New Document# Dafny - Software Specification Project 19/20
 
 ![](https://avatars0.githubusercontent.com/u/52358127?s=200&v=4)
 
@@ -33,7 +33,6 @@ So, we first though on the methods:
 
 The properties we need to maintain are then:
 
-* For the methods dividing / joining the file lines, we should be sure that the single array length is the same as the sum of the length of all the lines
 * For the reversing method
 	* The reversed lines being returned are actually the reverse of the original lines 
 	* The sum of the lengths of the reversed lines is the same as the sum of the lengths of the original lines
@@ -46,24 +45,24 @@ The properties we need to maintain are then:
 Then, we attempted to verify some pattern matching algorithms.
 Divided in two parts, first we attempt a simple naive approach and then a more complicated Knuth-Morris-Pratt algorithm verification.
 Here, the objective is to read a file and search for a given string and return the indexes where it is found, or just return an empty sequence if there is no match.
-We reutilized some code from the reverse challenge, mostly on the file reading and splitting.
+We re-utilized some code from the reverse challenge, mostly on the file reading and splitting.
 ## Naive Approach
 For this approach, the implementation is very simple, just iterate over the searched line and then check in that index if there is a match.
 This method should ensure at least two properties:
 1. All returned indexes should be a match
-2. If atleast one index was returned, then there must be atleast one index which is a match 
+2. If at least one index was returned, then there must be at least one index which is a match 
 
 Essentially, there are two`while`loops that should achieve those properties.
 The first loop iterates over the searched word, and the second loop iterates over the query to find the match. 
 By having the second loop as a separate method that returns a boolean if it has found a match, we can have it ensure the 1<sup>st</sup> property. This is done using an incremental loop invariant for partial match that ensures that the query matches the word in the slice `index..index+count`, count being the number of matches achieved.
 At termination, if the loop fully matched, then, we can prove there was a full match because of the invariant used.
-To prove the 2<sup>nd</sup> property, as we only append to the index sequence if the index is a full match, we can also add an invariant saying that if we found atleast one index there is atleast one match.
+To prove the 2<sup>nd</sup> property, as we only append to the index sequence if the index is a full match, we can also add an invariant saying that if we found at least one index there is at least one match.
 
 ## Knuth-Morris-Pratt Algorithm
 
 ## Extra: Bash-style Line matching
 There is an interesting extra to this challenge, which is instead of returning matching indexes, we return the lines of the file that match the query.
-For this, specification-wise, we should aim to verify that all the returned lines contain atleast one match.
+For this, specification-wise, we should aim to verify that all the returned lines contain at least one match.
 Since Dafny doesn't support pretty colour printing we chose not to try to highlight the matches and just display the lines. Initially we tried to do something like inserting some characters to highlight but as that introduced some problems we chose to go for a simpler way.
 
 Example of execution:
@@ -81,4 +80,6 @@ Matching lines
 aabca
 aabcd
 ```
+
+Since the line `aba` doesn't contain the query, it is not part of the matching lines returned.
 # Conclusion / Problems Faced
