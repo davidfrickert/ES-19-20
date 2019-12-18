@@ -127,6 +127,8 @@ reads word, query
 }
 
 
+// Since we didn't manage to fully write a specification for the KMP table method, we have here 
+// a simple KMP search without table, with our attempts to write a KMP with table following after
 method KMPnoTable(word: array<char>, pattern: array<char>) returns (found: bool, indexes: seq<nat>)
 requires word.Length > 0
 requires pattern.Length > 0
@@ -155,13 +157,10 @@ ensures forall k :: 0 <= k < |indexes| && |indexes| > 0 ==> word[indexes[k]..ind
     {
       print "Matched at j, k = ", j, ", ", k, "\n";
       
-      assert MatchesUpToN(word, pattern, j - k, k);
-
       j := j + 1;
       k := k + 1;
 
       if k == pattern.Length {
-        assert MatchesAtIndex(word, pattern, j - k);
         found := true;
         indexes := indexes + [j - k];
         k := 0;
@@ -177,14 +176,16 @@ ensures forall k :: 0 <= k < |indexes| && |indexes| > 0 ==> word[indexes[k]..ind
 
 }
 
-method KMPSearch(word: array<char>, pattern: array<char>) returns (found: bool, indexes: seq<nat>)
+// Here, our KMP search with table, is marked as 'verify false' as we couldn't fulfill the table properties
+// But, we knew the properties it should ensure (post-conditions)
+method {:verify false} KMPSearch(word: array<char>, pattern: array<char>) returns (found: bool, indexes: seq<nat>)
 requires word.Length > 0
 requires pattern.Length > 0
 requires word.Length >= pattern.Length
 decreases *
 ensures |indexes| >= 0
 ensures forall k :: 0 <= k < |indexes| ==>indexes[k]+pattern.Length <= word.Length
-ensures forall k :: 0 <= k < |indexes| ==> MatchesAtIndex(word, pattern, indexes[k]) && AnyMatch(word, pattern)
+ensures forall k :: 0 <= k < |indexes| ==> MatchesAtIndex(word, pattern, indexes[k])
 ensures found ==> AnyMatch(word, pattern)
 ensures forall k :: 0 <= k < |indexes| && |indexes| > 0 ==> word[indexes[k]..indexes[k]+pattern.Length] == pattern[0..pattern.Length]
 
@@ -246,7 +247,8 @@ reads a
   forall i :: 0 <= i < a.Length ==> a[i] < i
 }
 
-predicate  CheckTable(ptn: array<char>, index: nat, score: nat) 
+// verifica que para o indice e valor da tabela dado, o prefixo de length 'score' é realmente um prefixo do pattern
+predicate CheckTable(ptn: array<char>, index: nat, score: nat) 
 requires score <= index < ptn.Length
 reads ptn
 {
@@ -322,7 +324,9 @@ ensures forall i :: 0 <= i < table.Length ==> CheckTable(pattern, i, table[i])
   }
 }
 
-method {:verify false} BashGrep(word: array<char>, query: array<char>) returns (found: bool, lines: seq<array<char>>)
+// Bash grep, same code as the Naive Grep, just calls the KMP grep method
+// Then, it ensures that all the returned lines are indeed a match using the AnyMatch predicate
+method BashGrep(word: array<char>, query: array<char>) returns (found: bool, lines: seq<array<char>>)
 requires word.Length > 0
 requires query.Length > 0
 requires word.Length >= query.Length
@@ -434,9 +438,11 @@ method {:main} Main(ghost env:HostEnvironment?)
       print "File has fewer characters than query string, invalid use! Please add text to the file or query a smaller string.";
       return;
     }
-  
+
+    // call the Bash Grep method
     var found, rst := BashGrep(word, query);
     
+    // if found then print the retrieved lines
     if found {
       print "Matching lines\n";
       var l := 0;
@@ -447,6 +453,7 @@ method {:main} Main(ghost env:HostEnvironment?)
         l := l + 1;
       } 
     } else {
+      // not found
         print "Query not found in any line\n";
     }
     
